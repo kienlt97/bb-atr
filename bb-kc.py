@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 from binance.client import Client
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-
+from termcolor import colored as cl
+from math import floor
 plt.style.use('fivethirtyeight')
 plt.rcParams['figure.figsize'] = (20,10)
 
@@ -13,7 +14,7 @@ plt.rcParams['figure.figsize'] = (20,10)
 # EXTRACTING STOCK DATA
 starttime = '30 day ago UTC'  # to start for 1 day ago
 interval = '3m'
-symbol = 'ETHUSDT'   # Change symbol here e.g. BTCUSDT, BNBBTC, ETHUSDT, NEOBTC
+symbol = 'NEARUSDT'   # Change symbol here e.g. BTCUSDT, BNBBTC, ETHUSDT, NEOBTC
 api_key = 'lwaoJYVsMOYVNIBXma32k3PoNzhB5kJ7A6TcRv6cQEqPUTEBMBZHPWiFKZ7bIRqM'     # passkey (saved in bashrc for linux)
 api_secret = 'aDpaIwHf9GVJBiI36aUye5Y2zd1LKCPAUjKIMD9N5ZhzJBqNOJN6Jy09Waw7HBjO' # secret (saved in bashrc for linux)
 
@@ -219,10 +220,7 @@ if __name__ == '__main__':
     
     buy_price, sell_price, bb_kc_rsi_signal = bb_kc_rsi_strategy(df['close'], df['upper_bb'], df['lower_bb'], df['kc_upper'], df['kc_lower'], df['rsi_14'])
     plot_graph(symbol, df, buy_price, sell_price)
-
-    print("sum_buy_price", np.nansum(buy_price))   
-    print("sum_sell_price", np.nansum(sell_price))    
-    print("total", np.nansum(sell_price) - np.nansum(buy_price))    
+ 
     # POSITION
     position = []
     for i in range(len(bb_kc_rsi_signal)):
@@ -238,43 +236,42 @@ if __name__ == '__main__':
             position[i] = 0
         else:
             position[i] = position[i-1]
-    # print(position)
 
 
-    # kc_upper = df['kc_upper']
-    # kc_lower = df['kc_lower']
-    # upper_bb = df['upper_bb']
-    # lower_bb = df['lower_bb']
-    # rsi = df['rsi_14']
-    # close_price = df['close']
-    # bb_kc_rsi_signal = pd.DataFrame(bb_kc_rsi_signal).rename(columns = {0:'bb_kc_rsi_signal'}).set_index(df.index)
-    # position = pd.DataFrame(position).rename(columns ={0:'bb_kc_rsi_position'}).set_index(df.index)
-    # frames = [close_price, kc_upper, kc_lower, upper_bb, lower_bb, rsi, bb_kc_rsi_signal, position]
-    # strategy = pd.concat(frames, join = 'inner', axis= 1)
-    # print(strategy)
+    kc_upper = df['kc_upper']
+    kc_lower = df['kc_lower']
+    upper_bb = df['upper_bb']
+    lower_bb = df['lower_bb']
+    rsi = df['rsi_14']
+    close_price = df['close']
+    bb_kc_rsi_signal = pd.DataFrame(bb_kc_rsi_signal).rename(columns = {0:'bb_kc_rsi_signal'}).set_index(df.index)
+    position = pd.DataFrame(position).rename(columns ={0:'bb_kc_rsi_position'}).set_index(df.index)
+    frames = [close_price, kc_upper, kc_lower, upper_bb, lower_bb, rsi, bb_kc_rsi_signal, position]
+    strategy = pd.concat(frames, join = 'inner', axis= 1)
 
-    # df_ret = pd.DataFrame(np.diff(df['close'])).rename(columns = {0:'returns'})
-    # bb_kc_rsi_strategy_ret = []
+    df_ret = pd.DataFrame(np.diff(df['close'])).rename(columns = {0:'returns'})
+    bb_kc_rsi_strategy_ret = []
 
-    # strategy = strategy['bb_kc_rsi_position'].to_numpy()
-    # df_ret = df_ret['returns'].to_numpy()
-    # df_close = df['close'].to_numpy()
+    strategy = strategy['bb_kc_rsi_position'].to_numpy()
+    df_ret = df_ret['returns'].to_numpy()
+    df_close = df['close'].to_numpy()
 
-    # for i in range(len(df_ret)):
-    #     returns = df_ret[i]*strategy[i]
-    #     bb_kc_rsi_strategy_ret.append(returns)
+    for i in range(len(df_ret)):
+        returns = df_ret[i]*strategy[i]
+        bb_kc_rsi_strategy_ret.append(returns)
         
-    # bb_kc_rsi_strategy_ret_df = pd.DataFrame(bb_kc_rsi_strategy_ret).rename(columns = {0:'bb_kc_rsi_returns'})
-    # investment_value = 300
-    # bb_kc_rsi_investment_ret = []
-    # bb_kc_rsi_returns = bb_kc_rsi_strategy_ret_df['bb_kc_rsi_returns'].to_numpy()
+    bb_kc_rsi_strategy_ret_df = pd.DataFrame(bb_kc_rsi_strategy_ret).rename(columns = {0:'bb_kc_rsi_returns'})
+    investment_value = 300
+    bb_kc_rsi_investment_ret = []
+    bb_kc_rsi_returns = bb_kc_rsi_strategy_ret_df['bb_kc_rsi_returns'].to_numpy()
 
-    # for i in range(len(bb_kc_rsi_strategy_ret_df['bb_kc_rsi_returns'])):
-    #     number_of_stocks = floor(investment_value/df_close[i])
-    #     returns = number_of_stocks*bb_kc_rsi_returns[i]
-    #     bb_kc_rsi_investment_ret.append(returns)
+    for i in range(len(bb_kc_rsi_strategy_ret_df['bb_kc_rsi_returns'])):
+        number_of_stocks = floor(investment_value/df_close[i])
+        returns = number_of_stocks*bb_kc_rsi_returns[i]
+        bb_kc_rsi_investment_ret.append(returns)
 
-    # bb_kc_rsi_investment_ret_df = pd.DataFrame(bb_kc_rsi_investment_ret).rename(columns = {0:'investment_returns'})
-    # total_investment_ret = round(sum(bb_kc_rsi_investment_ret_df['investment_returns']), 2)
-    # profit_percentage = floor((total_investment_ret/investment_value)*100)
-    # print('Profit gained from the BB KC RSI strategy by investing $%s in df: %s' % (investment_value,total_investment_ret))
+    bb_kc_rsi_investment_ret_df = pd.DataFrame(bb_kc_rsi_investment_ret).rename(columns = {0:'investment_returns'})
+    total_investment_ret = round(sum(bb_kc_rsi_investment_ret_df['investment_returns']), 2)
+    profit_percentage = floor((total_investment_ret/investment_value)*100)
+    print('Profit gained from the BB KC RSI strategy by investing $%s in df: %s' % (investment_value,total_investment_ret))
+    print(cl('Profit percentage of the KC strategy : {}%'.format(profit_percentage), attrs = ['bold']))

@@ -15,7 +15,7 @@ plt.style.use('fivethirtyeight')
 
 starttime = '30 day ago UTC'  # to start for 1 day ago
 interval = '3m'
-symbol = 'SOLUSDT'   # Change symbol here e.g. BTCUSDT, BNBBTC, ETHUSDT, NEOBTC
+symbol = 'NEARUSDT'   # Change symbol here e.g. BTCUSDT, BNBBTC, ETHUSDT, NEOBTC
 api_key = 'lwaoJYVsMOYVNIBXma32k3PoNzhB5kJ7A6TcRv6cQEqPUTEBMBZHPWiFKZ7bIRqM'     # passkey (saved in bashrc for linux)
 api_secret = 'aDpaIwHf9GVJBiI36aUye5Y2zd1LKCPAUjKIMD9N5ZhzJBqNOJN6Jy09Waw7HBjO' # secret (saved in bashrc for linux)
 
@@ -79,24 +79,26 @@ def implement_kc_strategy(prices, kc_upper, kc_lower):
     sell_price = []
     kc_signal = []
     signal = 0
-    
-    for i in range(len(prices)):
-        if prices[i] < kc_lower[i] and prices[i+1] > prices[i]:
+
+    for i in range(0, len(prices)):
+        if prices[i] < kc_lower[i] and i < len(prices) - 1 and prices[i+1] > prices[i]:
             if signal != 1:
                 buy_price.append(prices[i])
                 sell_price.append(np.nan)
                 signal = 1
                 kc_signal.append(signal)
+                # print("BUY coin with i: {} ${}".format(i, prices[i]))
             else:
                 buy_price.append(np.nan)
                 sell_price.append(np.nan)
                 kc_signal.append(0)
-        elif prices[i] > kc_upper[i] and prices[i+1] < prices[i]:
+        elif prices[i] > kc_upper[i] and i < len(prices) - 1 and prices[i+1] < prices[i]:
             if signal != -1:
                 buy_price.append(np.nan)
                 sell_price.append(prices[i])
                 signal = -1
                 kc_signal.append(signal)
+                # print("SELL coin with i: {} ${}".format(i, prices[i]))
             else:
                 buy_price.append(np.nan)
                 sell_price.append(np.nan)
@@ -105,25 +107,9 @@ def implement_kc_strategy(prices, kc_upper, kc_lower):
             buy_price.append(np.nan)
             sell_price.append(np.nan)
             kc_signal.append(0)
-            
+
     return buy_price, sell_price, kc_signal
 
-# SPY ETF COMPARISON
-
-def get_benchmark(df, investment_value):
-    spy = df['close']
-    benchmark = pd.DataFrame(np.diff(spy)).rename(columns = {0:'benchmark_returns'})
-    
-    investment_value = investment_value
-    benchmark_investment_ret = []
-    
-    for i in range(len(benchmark['benchmark_returns'])):
-        number_of_stocks = floor(investment_value/spy[i])
-        returns = number_of_stocks*benchmark['benchmark_returns'][i]
-        benchmark_investment_ret.append(returns)
-
-    benchmark_investment_ret_df = pd.DataFrame(benchmark_investment_ret).rename(columns = {0:'investment_returns'})
-    return benchmark_investment_ret_df
 
 def plot_graph(symbol, df, entry_prices, exit_prices):
     fig = make_subplots(rows=3, cols=1, subplot_titles=['Close + BB-ATR'])
@@ -141,10 +127,7 @@ def plot_graph(symbol, df, entry_prices, exit_prices):
     fig.add_trace(go.Line(x = df.index, y = bb_high, line=dict(color='green', width=1), name='BB High'), row = 1, col = 1)
     fig.add_trace(go.Line(x = df.index, y = bb_mid, line=dict(color='#ffd866', width=1), name='BB Mid'), row = 1, col = 1)
     fig.add_trace(go.Line(x = df.index, y = bb_low, line=dict(color='red', width=1), name='BB Low'), row = 1, col = 1)
-    
-    #  Plot RSI
-    # fig.add_trace(go.Line(x = df.index, y = np.array(df['rsi_14'], dtype=np.float32) , line=dict(color='blue', width=1), name='RSI'), row = 2, col = 1)
-
+ 
     #  Add buy and sell indicators
     fig.add_trace(go.Scatter(x=df.index, y=np.array(entry_prices, dtype=np.float32), marker_symbol='arrow-up', marker=dict(
         color='green',size=15
@@ -169,18 +152,13 @@ if __name__ == '__main__':
     print("Using Binance TestNet Server")
 
     # symbol = 'ETH-USD'
-
     df = get_historical_data(symbol)
-    # df = df.iloc[:,:4]
 
     df['kc_middle'], df['kc_upper'], df['kc_lower'] = get_kc(df['high'], df['low'], df['close'], 20, 2, 10)
 
     buy_price, sell_price, kc_signal = implement_kc_strategy(df['close'], df['kc_upper'], df['kc_lower'])
-    plot_graph(symbol, df, buy_price, sell_price)
 
-    # print("sum_buy_price", np.nansum(buy_price))   
-    # print("sum_sell_price", np.nansum(sell_price))    
-    # print("total", np.nansum(sell_price) - np.nansum(buy_price))    
+    plot_graph(symbol, df, buy_price, sell_price)
 
     position = []
     for i in range(len(kc_signal)):
@@ -188,14 +166,15 @@ if __name__ == '__main__':
             position.append(0)
         else:
             position.append(1)
-    
-    for i in range(len(kc_signal)):
+
+    for i in range(len(df['close'])):
         if kc_signal[i] == 1:
             position[i] = 1
         elif kc_signal[i] == -1:
             position[i] = 0
         else:
-            position[i] = position[i-1]     
+            position[i] = position[i-1]    
+
     close_price = df['close']
     kc_upper = df['kc_upper']
     kc_lower = df['kc_lower']
@@ -212,18 +191,21 @@ if __name__ == '__main__':
         returns = intc_ret['returns'][i]*strategy['kc_position'][i]
         kc_strategy_ret.append(returns)
       
-        
     kc_strategy_ret_df = pd.DataFrame(kc_strategy_ret).rename(columns = {0:'kc_returns'})
-    investment_value = 1000
+    investment_value = 300
     kc_investment_ret = []
 
     for i in range(len(kc_strategy_ret_df['kc_returns'])):
         number_of_stocks = floor(investment_value/df['close'][i])
         returns = number_of_stocks*kc_strategy_ret_df['kc_returns'][i]
+        # print("number_of_stocks: {}, close: {}, returns: {}, kc_returns:{}".format(number_of_stocks, df['close'][i], returns, kc_strategy_ret_df['kc_returns'][i]))
         kc_investment_ret.append(returns)
 
     kc_investment_ret_df = pd.DataFrame(kc_investment_ret).rename(columns = {0:'investment_returns'})
+    # print(kc_investment_ret_df)
     total_investment_ret = round(sum(kc_investment_ret_df['investment_returns']), 2)
+    print("=======================================================================")
+
     profit_percentage = floor((total_investment_ret/investment_value)*100)
-    print(cl('Profit gained from the KC strategy by investing ${} in INTC : {}'.format(investment_value, total_investment_ret), attrs = ['bold']))
+    print(cl('Profit gained from the KC strategy by investing ${}, in INTC : {}'.format(investment_value, total_investment_ret), attrs = ['bold']))
     print(cl('Profit percentage of the KC strategy : {}%'.format(profit_percentage), attrs = ['bold']))
