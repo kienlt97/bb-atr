@@ -17,6 +17,7 @@ import json
 from decimal import Decimal as D, ROUND_DOWN, ROUND_UP
 import time
 from forex_python.converter import CurrencyRates
+import concurrent.futures
 
 start_time = time.time()
 c = CurrencyRates()
@@ -194,7 +195,7 @@ def backTest(symbol):
 
         kc_strategy_ret_df = pd.DataFrame(kc_strategy_ret).rename(columns={0: 'kc_returns'})
 
-        investment_value = 500
+        investment_value = 300
         currency = 25000
         kc_investment_ret = []
         arr_result = []
@@ -208,37 +209,39 @@ def backTest(symbol):
 
  
         # Group the tuples by key and calculate the sum of values for each group
-        grouped = [(key, sum(value for _, value in group))
-                   for key, group in groupby(arr_result, key=lambda x: x[0])]
-        print("==========================  {}  ======================".format(symbol))
+        # grouped = [(key, sum(value for _, value in group))
+        #            for key, group in groupby(arr_result, key=lambda x: x[0])]
+        # print("==========================  {}  ======================".format(symbol))
 
-        for rs in grouped:
-            color = ''
-            tk_profit = floor((round(rs[1],3) / investment_value) * 100)
-            vnd_profit = '{:,.2f}'.format((round(rs[1]*currency,0))).replace(',','*').replace('.', ',').replace('*','.')
-            rs_str = 'date:' + str(rs[0]) +'\t - profit: $'+ str(round(rs[1],3)) + '\t ~ VND: ' +  vnd_profit +   '\t -> ' + str(tk_profit) +'%'
-            if (round(rs[1],3) < 0):
-                color = 'red'
-            else:
-                color = 'green'
+        # for rs in grouped:
+        #     color = ''
+        #     tk_profit = floor((round(rs[1],3) / investment_value) * 100)
+        #     vnd_profit = '{:,.2f}'.format((round(rs[1]*currency,0))).replace(',','*').replace('.', ',').replace('*','.')
+        #     rs_str = 'date:' + str(rs[0]) +'\t - profit: $'+ str(round(rs[1],3)) + '\t ~ VND: ' +  vnd_profit +   '\t -> ' + str(tk_profit) +'%'
+        #     if (round(rs[1],3) < 0):
+        #         color = 'red'
+        #     else:
+        #         color = 'green'
             
-            print(colored(rs_str, color))
+        #     print(colored(rs_str, color))
         
 
         kc_investment_ret_df = pd.DataFrame(kc_investment_ret).rename(columns={0: 'investment_returns'})
         total_investment_ret = round(sum(kc_investment_ret_df['investment_returns']), 2)
         profit_percentage = floor((total_investment_ret / investment_value) * 100)
     
-        vnd_profit_total = '{:,.2f}'.format((round(total_investment_ret * currency,0))).replace(',','*').replace('.', ',').replace('*','.')
-        print(cl('Profit gained from the KC strategy by investing ${}, in INTC : ${} ~ {} VND'.format(investment_value,total_investment_ret, vnd_profit_total), attrs=['bold']))
-        print(cl('Profit percentage of the KC strategy : {}%'.format(profit_percentage), attrs=['bold']))
-        time_end = float(time.time() - start_time)
-        print("--- %s seconds ---" % time_end)
+        # vnd_profit_total = '{:,.2f}'.format((round(total_investment_ret * currency,0))).replace(',','*').replace('.', ',').replace('*','.')
+        # print(cl('Profit gained from the KC strategy by investing ${}, in INTC : ${} ~ {} VND'.format(investment_value,total_investment_ret, vnd_profit_total), attrs=['bold']))
+        # print(cl('Profit percentage of the KC strategy : {}%'.format(profit_percentage), attrs=['bold']))
+        # time_end = float(time.time() - start_time)
+        # print("--- %s seconds ---" % time_end)
+        if (profit_percentage is None or investment_value is None or total_investment_ret is None):
+            print("=============> {} ========== errrirrr".format(symbol))
 
         profit_obj = Profit(profit_percentage, investment_value, total_investment_ret, symbol)
         return profit_obj
     except Exception as e:
-        print("exception: "+symbol)
+        print("error: "+symbol)
 
 def round_step_size(quantity: Union[float, Decimal], step_size: Union[float, Decimal]) -> float:
     """Rounds a given quantity to a specific step size
@@ -277,60 +280,146 @@ def getQuantity():
 
     return quantity, price
 
-if __name__ == '__main__':
-    api_key = 'lwaoJYVsMOYVNIBXma32k3PoNzhB5kJ7A6TcRv6cQEqPUTEBMBZHPWiFKZ7bIRqM'  # passkey (saved in bashrc for linux)
-    api_secret = 'aDpaIwHf9GVJBiI36aUye5Y2zd1LKCPAUjKIMD9N5ZhzJBqNOJN6Jy09Waw7HBjO'  # secret (saved in bashrc for linux)
-    client = Client(api_key, api_secret)
-    # symbol = 'DOGEUSDT'
-    # df = get_historical_data('NEARUSDT')
-
-    # # order = client.get_order(symbol = symbol, orderId = 4946721858) # 4946721858, 4946503030
-    # # print(json.dumps(order, indent=2)) 
-    # quantity, price = getQuantity()
-    # print(quantity)
-    # print(price)
-    
-    # market_res = client.order_market_sell(symbol=symbol,quantity = 74)
-    # market_res = client.order_market_buy(symbol=symbol,quantity = 74)
-
-    # print(json.dumps(market_res, indent=2))
-
-
-    ################################################
-    # print(buy_order)
-    # exchange_info = client.get_exchange_info()
-
-    # # for i in range(len(exchange_info['symbols'])) :
-    # #     arr_profit.append(backTest(exchange_info['symbols'][i]['symbol'], i))
-
-
-    print("Using Binance TestNet Server")
-    alts_list1 = ['1INCH', 'ADA', 'ATOM', 'ANKR', 'ALGO', 'AVAX', 'AAVE', 'AUDIO',
-                  'BAT', 'CHZ', 'COTI', 'FLOW', 'APE', 'BNB', 'ETH',
-                  'DOT', 'DOGE', 'EOS', 'ETC', 'ENJ', 'EGLD', 'FTM', 'FIL', 'AXS',
-                  'IOTA', 'ICP', 'KSM', 'LINK', 'LTC', 'GALA', 'HBAR',
-                  'MATIC', 'MANA', 'NEO', 'NEAR', 'ONE', 'RVN', 'SAND', 'XTZ', 'ZEC',
-                  'SOL', 'TFUEL', 'THETA', 'UNI', 'VET', 'XRP', 'XLM', 'ZIL'
-                  ]
-
+def f_common (alts_list, fname):
+    print("start %s" % fname)
     arr_profit = []
-    # alts_list = ['NEAR']
-    alts_list = ['ZEC', 'TFUEL','RVN','ICP','FTM']
     for sym in alts_list:
         arr_profit.append(backTest(sym))
 
+    time_end = float(time.time() - start_time)/60.0
+    print("End -- {} - {} minute ---".format(fname,round(time_end,0)))
+    return arr_profit
 
-    # arr_profit.sort(key=lambda x: x.profit_percentage)
-    total = 0
-    for p in arr_profit:
-        total += p.total_investment_ret
-        # if p.profit_percentage > -15:
-        #     total += p.total_investment_ret
-        #     print("================================ {} =======================================".format(p.symbol))
-        #     print(cl('Profit gained from the KC strategy by investing ${}, in INTC : {}'.format(p.investment_value,
-        #                                                                                         p.total_investment_ret),
-        #              attrs=['bold']))
-        #     print(cl('Profit percentage of the KC strategy : {}%'.format(p.profit_percentage), attrs=['bold']))
+def f1(alts_list, fname):
+    return f_common(alts_list, fname)
 
-    vnd_profit_total = '{:,.2f}'.format((round(total * 25000,0))).replace(',','*').replace('.', ',').replace('*','.')
-    print('${} ~ {}'.format(total, vnd_profit_total))
+def f2(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f3(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f4(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f5(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f6(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f7(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f8(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f9(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f10(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f11(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f12(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f13(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f14(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f15(alts_list, fname):
+    return f_common(alts_list, fname)
+
+def f16(alts_list, fname):
+    return f_common(alts_list, fname)
+
+from datetime import datetime
+currentDateAndTime = datetime.now()
+
+# if __name__ == '__main__':
+with concurrent.futures.ThreadPoolExecutor() as executor:
+    print("The current date and time is", currentDateAndTime)
+
+    # api_key = 'lwaoJYVsMOYVNIBXma32k3PoNzhB5kJ7A6TcRv6cQEqPUTEBMBZHPWiFKZ7bIRqM'  # passkey (saved in bashrc for linux)
+    # api_secret = 'aDpaIwHf9GVJBiI36aUye5Y2zd1LKCPAUjKIMD9N5ZhzJBqNOJN6Jy09Waw7HBjO'  # secret (saved in bashrc for linux)
+    # client = Client(api_key, api_secret)
+
+    # print("Using Binance TestNet Server")
+    # a = ['1INCH', 'ADA', 'ATOM', 'ANKR', 'ALGO', 'AVAX', 
+    #             'AAVE', 'AUDIO', 'BAT', 'CHZ', 'COTI', 'FLOW', 
+    #             'APE', 'BNB', 'ETH',   'DOT', 'DOGE', 'EOS', 
+    #             'ETC', 'ENJ', 'EGLD', 'FTM', 'FIL', 'AXS',
+    #             'IOTA', 'ICP', 'KSM', 'LINK', 'LTC', 'GALA',
+    #             'HBAR',  'MATIC', 'MANA', 'NEO', 'NEAR', 'ONE', 
+    #             'RVN', 'SAND', 'XTZ', 'ZEC', 'SOL', 'TFUEL',
+    #             'THETA', 'UNI', 'VET', 'XRP', 'XLM', 'ZIL'
+    #               ]
+
+    # # arr_profit = []
+    # # for sym in alts_list:
+    # #     arr_profit.append(backTest(sym))
+    # ar1 = a[0:3]
+    # ar2 = a[3:6]
+    # ar3 = a[6:9]
+    # ar4 = a[9:12]
+    # ar5 = a[12:15]
+    # ar6 = a[15:18]
+    # ar7 = a[18:21]
+    # ar8 = a[21:24]
+    # ar9 = a[24:27]
+    # ar10 = a[27:30]
+    # ar11 = a[30:33]
+    # ar12 = a[33:36]
+    # ar13 = a[36:39]
+    # ar14 = a[39:42]
+    # ar15 = a[42:45]
+    # ar16 = a[45:48]
+
+    # f1_s = executor.submit(f1, ar1, f1.__name__)
+    # f2_s = executor.submit(f2, ar2, f2.__name__)
+    # f3_s = executor.submit(f3, ar3, f3.__name__)
+    # f4_s = executor.submit(f4, ar4, f4.__name__)
+    # f5_s = executor.submit(f5, ar5, f5.__name__)
+    # f6_s = executor.submit(f6, ar6, f6.__name__)
+    # f7_s = executor.submit(f7, ar7, f7.__name__)
+    # f8_s = executor.submit(f8, ar8, f8.__name__)
+    # f9_s = executor.submit(f9, ar9, f9.__name__)
+    # f10_s = executor.submit(f10, ar10, f10.__name__)
+    # f11_s = executor.submit(f11, ar11, f11.__name__)
+    # f12_s = executor.submit(f12, ar12, f12.__name__)
+    # f13_s = executor.submit(f13, ar13, f13.__name__)
+    # f14_s = executor.submit(f14, ar14, f14.__name__)
+    # f15_s = executor.submit(f15, ar15, f15.__name__)
+    # f16_s = executor.submit(f16, ar16, f16.__name__)
+
+    # arr_profit = [f1_s.result(),f2_s.result(),f3_s.result(),f4_s.result(),f5_s.result(),f6_s.result(),f7_s.result(),f8_s.result(),
+    #               f9_s.result(),f10_s.result(),f11_s.result(),f12_s.result(),f13_s.result(),f14_s.result(),f15_s.result(),f16_s.result()]
+
+    # # arr_profit.sort(key=lambda x: x.profit_percentage)
+    # total = 0
+    # try:
+    #     for p in arr_profit:
+    #         print(json.dumps(p, indent=2))
+    #         # total += p.total_investment_ret
+    #         if p.profit_percentage > -15:
+    #             total += p.total_investment_ret
+    #             print("================================ {} =======================================".format(p.symbol))
+    #             print(cl('Profit gained from the KC strategy by investing ${}, in INTC : {}'.format(p.investment_value,
+    #                                                                                                 p.total_investment_ret),
+    #                     attrs=['bold']))
+    #             print(cl('Profit percentage of the KC strategy : {}%'.format(p.profit_percentage), attrs=['bold']))
+    # except Exception as e:
+    #     print(e)
+    
+    # vnd_profit_total = '{:,.2f}'.format((round(total * 25000,0))).replace(',','*').replace('.', ',').replace('*','.')
+    # print('${} ~ {}'.format(total, vnd_profit_total))
+    
+
+    # time_end = float(time.time() - start_time)/60.0
+    # print("--- %s total minute ---" % round(time_end,0))
+

@@ -28,3 +28,10 @@ urllib3==1.26.7
 websocket-client==1.2.1
 websockets==9.1
 yarl==1.9.4
+
+numpy~=1.26.4
+pandas~=2.2.1
+matplotlib~=3.8.4
+binance~=0.3
+plotly~=5.20.0
+termcolor~=2.4.0

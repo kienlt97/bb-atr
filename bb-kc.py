@@ -7,13 +7,16 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from termcolor import colored as cl
 from math import floor
+from itertools import groupby
+from termcolor import colored
+
 plt.style.use('fivethirtyeight')
 plt.rcParams['figure.figsize'] = (20,10)
 
 # EXTRACTING STOCK DATA
 # EXTRACTING STOCK DATA
 starttime = '30 day ago UTC'  # to start for 1 day ago
-interval = '3m'
+interval = '1m'
 symbol = 'NEARUSDT'   # Change symbol here e.g. BTCUSDT, BNBBTC, ETHUSDT, NEOBTC
 api_key = 'lwaoJYVsMOYVNIBXma32k3PoNzhB5kJ7A6TcRv6cQEqPUTEBMBZHPWiFKZ7bIRqM'     # passkey (saved in bashrc for linux)
 api_secret = 'aDpaIwHf9GVJBiI36aUye5Y2zd1LKCPAUjKIMD9N5ZhzJBqNOJN6Jy09Waw7HBjO' # secret (saved in bashrc for linux)
@@ -108,19 +111,22 @@ def get_rsi(close, lookback):
     return rsi_df[3:]
 
 # TRADING STRATEGY
-def bb_kc_rsi_strategy(prices, upper_bb, lower_bb, kc_upper, kc_lower, rsi):
+def bb_kc_rsi_strategy(prices, upper_bb, lower_bb, kc_upper, kc_lower, rsi, date_time):
     buy_price = []
     sell_price = []
     bb_kc_rsi_signal = []
+    date_signal = []
     signal = 0
     lower_bb = lower_bb.to_numpy()
     kc_lower = kc_lower.to_numpy()
     upper_bb = upper_bb.to_numpy()
     kc_upper = kc_upper.to_numpy()
     prices = prices.to_numpy()
-
+    date_time = date_time.apply(lambda x: pd.to_datetime(x, unit='ms').strftime('%d/%m/%Y')).to_numpy()
+    # print((date_time))
     rsi = rsi.to_numpy()
     for i in range(len(prices)):
+        date_signal.append(date_time[i])
         if lower_bb[i] < kc_lower[i] and upper_bb[i] > kc_upper[i] and rsi[i] < 30:
             if signal != 1:
                 buy_price.append(prices[i])
@@ -145,7 +151,7 @@ def bb_kc_rsi_strategy(prices, upper_bb, lower_bb, kc_upper, kc_lower, rsi):
             buy_price.append(np.nan)
             sell_price.append(np.nan)
             bb_kc_rsi_signal.append(0)
-    return buy_price, sell_price, bb_kc_rsi_signal
+    return buy_price, sell_price, bb_kc_rsi_signal, date_signal
 
 
 def plot_graph(symbol, df, entry_prices, exit_prices):
@@ -218,12 +224,14 @@ if __name__ == '__main__':
     df = df.dropna()
 
     
-    buy_price, sell_price, bb_kc_rsi_signal = bb_kc_rsi_strategy(df['close'], df['upper_bb'], df['lower_bb'], df['kc_upper'], df['kc_lower'], df['rsi_14'])
-    plot_graph(symbol, df, buy_price, sell_price)
+    buy_price, sell_price, bb_kc_rsi_signal, date_signal = bb_kc_rsi_strategy(df['close'], df['upper_bb'], df['lower_bb'], df['kc_upper'], df['kc_lower'], df['rsi_14'], df['date'])
+    # plot_graph(symbol, df, buy_price, sell_price)
  
     # POSITION
     position = []
+    position_date = []
     for i in range(len(bb_kc_rsi_signal)):
+        position_date.append(date_signal[i])
         if bb_kc_rsi_signal[i] > 1:
             position.append(0)
         else:
@@ -246,29 +254,51 @@ if __name__ == '__main__':
     close_price = df['close']
     bb_kc_rsi_signal = pd.DataFrame(bb_kc_rsi_signal).rename(columns = {0:'bb_kc_rsi_signal'}).set_index(df.index)
     position = pd.DataFrame(position).rename(columns ={0:'bb_kc_rsi_position'}).set_index(df.index)
-    frames = [close_price, kc_upper, kc_lower, upper_bb, lower_bb, rsi, bb_kc_rsi_signal, position]
+    position_date = pd.DataFrame(position_date).rename(columns={0: 'position_date'}).set_index(df.index)
+    
+    frames = [close_price, kc_upper, kc_lower, upper_bb, lower_bb, rsi, bb_kc_rsi_signal, position, position_date]
+
     strategy = pd.concat(frames, join = 'inner', axis= 1)
 
     df_ret = pd.DataFrame(np.diff(df['close'])).rename(columns = {0:'returns'})
     bb_kc_rsi_strategy_ret = []
 
-    strategy = strategy['bb_kc_rsi_position'].to_numpy()
+    bb_kc_rsi_position = strategy['bb_kc_rsi_position'].to_numpy()
     df_ret = df_ret['returns'].to_numpy()
     df_close = df['close'].to_numpy()
-
+    
     for i in range(len(df_ret)):
-        returns = df_ret[i]*strategy[i]
+        returns = df_ret[i]*bb_kc_rsi_position[i]
         bb_kc_rsi_strategy_ret.append(returns)
-        
+
     bb_kc_rsi_strategy_ret_df = pd.DataFrame(bb_kc_rsi_strategy_ret).rename(columns = {0:'bb_kc_rsi_returns'})
     investment_value = 300
     bb_kc_rsi_investment_ret = []
     bb_kc_rsi_returns = bb_kc_rsi_strategy_ret_df['bb_kc_rsi_returns'].to_numpy()
+    arr_result = []
+    bb_kc_position_date = strategy['position_date'].to_numpy()
 
     for i in range(len(bb_kc_rsi_strategy_ret_df['bb_kc_rsi_returns'])):
         number_of_stocks = floor(investment_value/df_close[i])
         returns = number_of_stocks*bb_kc_rsi_returns[i]
         bb_kc_rsi_investment_ret.append(returns)
+        tp = (bb_kc_position_date[i], returns)
+        arr_result.append(tp)
+
+    # Group the tuples by key and calculate the sum of values for each group
+    grouped = [(key, sum(value for _, value in group))
+                for key, group in groupby(arr_result, key=lambda x: x[0])]
+
+    # grouped.sort(key=lambda a: a[1])
+    print("==========================  {}  ======================".format(symbol))
+
+    for rs in grouped:
+        profit = ''
+        if (round(rs[1],3) < 0):
+            profit = colored(round(rs[1],3), 'red')
+        else:
+            profit = colored(round(rs[1],3), 'green')
+        print('date: {} - profit: ${}'.format(rs[0],profit))
 
     bb_kc_rsi_investment_ret_df = pd.DataFrame(bb_kc_rsi_investment_ret).rename(columns = {0:'investment_returns'})
     total_investment_ret = round(sum(bb_kc_rsi_investment_ret_df['investment_returns']), 2)
