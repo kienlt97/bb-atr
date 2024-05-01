@@ -240,11 +240,11 @@ def backTest(symbol):
         # print("--- %s seconds ---" % time_end)
         if (profit_percentage is None or investment_value is None or total_investment_ret is None):
             print("=============> {} ========== errrirrr".format(symbol))
-
+        
         profit_obj = Profit(profit_percentage, investment_value, total_investment_ret, symbol)
         return profit_obj
     except Exception as e:
-        print("error: "+symbol)
+        print("error: " + e)
 
 def round_step_size(quantity: Union[float, Decimal], step_size: Union[float, Decimal]) -> float:
     """Rounds a given quantity to a specific step size
@@ -287,10 +287,12 @@ def f_common (alts_list, fname):
     print("start {}:\t {}".format(fname, currentDateAndTime))
     arr_profit = []
     for sym in alts_list:
-        arr_profit.append(backTest(sym))
+        obj = backTest(sym)
+        arr_profit.append(obj)
 
     time_end = float(time.time() - start_time)/60.0
     print("End -- {} - {} minute ---".format(fname,round(time_end,0)))
+
     return arr_profit
 
 def f1(alts_list, fname):
@@ -349,7 +351,7 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
     client = Client(api_key, api_secret)
 
     print("Using Binance TestNet Server")
-    a = ['1INCH', 'ADA', 'ATOM', 'ANKR', 'ALGO', 'AVAX', 
+    a = ['1INCH', 'ADA', 'ATOM', 'ANKR', 'ALGO', 'AVAX' ,
                 'AAVE', 'AUDIO', 'BAT', 'CHZ', 'COTI', 'FLOW', 
                 'APE', 'BNB', 'ETH',   'DOT', 'DOGE', 'EOS', 
                 'ETC', 'ENJ', 'EGLD', 'FTM', 'FIL', 'AXS',
@@ -396,14 +398,14 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
     f15_s = executor.submit(f15, ar15, f15.__name__)
     f16_s = executor.submit(f16, ar16, f16.__name__)
 
-    arr_profit = [f1_s.result(),f2_s.result(),f3_s.result(),f4_s.result(),f5_s.result(),f6_s.result(),f7_s.result(),f8_s.result(),
-                  f9_s.result(),f10_s.result(),f11_s.result(),f12_s.result(),f13_s.result(),f14_s.result(),f15_s.result(),f16_s.result()]
-
-    # arr_profit.sort(key=lambda x: x.profit_percentage)
-    total = 0
+    arr_profit = f1_s.result() + f2_s.result() + f3_s.result() + f4_s.result() + f5_s.result() + f6_s.result() + f7_s.result() + f8_s.result() + f9_s.result() + f10_s.result() + f11_s.result() + f12_s.result() + f13_s.result() + f14_s.result() + f15_s.result() + f16_s.result()
  
+    total = 0
+    arr_profit.sort(key=lambda x: x.profit_percentage)
+
     for p in arr_profit:
         if (p is None):
+            print("object null")
             continue
         # total += p.total_investment_ret
         if p.profit_percentage > -15:

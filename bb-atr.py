@@ -17,6 +17,8 @@ import json
 from decimal import Decimal as D, ROUND_DOWN, ROUND_UP
 import time
 from forex_python.converter import CurrencyRates
+from dateutil import parser
+from datetime import date,datetime
 
 start_time = time.time()
 c = CurrencyRates()
@@ -24,15 +26,24 @@ c = CurrencyRates()
 plt.rcParams['figure.figsize'] = (20, 10)
 plt.style.use('fivethirtyeight')
 
-starttime = '30 day ago UTC'  # to start for 1 day ago
+starttime = ''  # to start for 1 day ago
 interval = '1m'
+flag = 0
+str_date = ''
+
 # symbol = 'DOGEUSDT'   # Change symbol here e.g. BTCUSDT, BNBBTC, ETHUSDT, NEOBTC
 api_key = 'lwaoJYVsMOYVNIBXma32k3PoNzhB5kJ7A6TcRv6cQEqPUTEBMBZHPWiFKZ7bIRqM'  # passkey (saved in bashrc for linux)
 api_secret = 'aDpaIwHf9GVJBiI36aUye5Y2zd1LKCPAUjKIMD9N5ZhzJBqNOJN6Jy09Waw7HBjO'  # secret (saved in bashrc for linux)
 
 
 def get_historical_data(symbol):
-    bars = client.get_historical_klines(symbol, interval, starttime)
+    starttime = getDayNumber()
+
+    start_str = str(parser.parse('2024-04-22 00:00:00'))
+    end_str = str(parser.parse('2024-04-24 23:59:00'))
+
+    bars = client.get_historical_klines(symbol, interval, start_str=start_str,
+        end_str=end_str)
 
     for line in bars:  # Keep only first 6 columns, 'date' 'open' 'high' 'low' 'close','volume'
         del line[6:]
@@ -66,14 +77,23 @@ def get_kc(high, low, close, kc_lookback, multiplier, atr_lookback):
 
 
 # KELTNER CHANNEL STRATEGY
-
-def implement_kc_strategy(prices, kc_upper, kc_lower, date_time):
+def implement_kc_strategy(prices, kc_upper, kc_lower, date_time, dt):
     buy_price = []
     sell_price = []
     kc_signal = []
     date_signal = []
-    date_time = date_time.apply(lambda x: pd.to_datetime(x, unit='ms').strftime('%d/%m/%Y'))
- 
+    fomatDT = ''
+
+    if flag == 0:
+        fomatDT = '%d/%m/%Y'
+    else:
+        fomatDT = '%m/%Y'
+    
+    if dt == 1:
+        date_time = date_time.apply(lambda x: pd.to_datetime(x, unit='ms').strftime(fomatDT))
+    else:
+        date_time = date_time.apply(lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%f').strftime(fomatDT))
+
     signal = 0
     for i in range(0, len(prices)):
         date_signal.append(date_time[i])
@@ -101,22 +121,70 @@ def implement_kc_strategy(prices, kc_upper, kc_lower, date_time):
             buy_price.append(np.nan)
             sell_price.append(np.nan)
             kc_signal.append(0)
-
-
     return buy_price, sell_price, kc_signal, date_signal
 
 
-def plot_graph(symbol, df, entry_prices, exit_prices):
-    fig = make_subplots(rows=3, cols=1, subplot_titles=['Close + BB-ATR'])
+def plot_graph(symbol, df, entry_prices, exit_prices, dfs):
+    # fig = make_subplots(rows=0, cols=1, subplot_titles=['Close + BB-ATR'])
 
+    # df.set_index('date', inplace=True)
+    # df.index = pd.to_datetime(df.index, unit='ms')  # index set to first column = date_and_time
+
+    # #  Plot close price
+    # fig.add_trace(
+    #     go.Line(x=df.index, y=np.array(df['close'], dtype=np.float32), line=dict(color='blue', width=1), name='Close'),
+    #     row=1, col=1)
+
+    # #  Plot bollinger bands
+    # bb_high = df['kc_upper'].astype(float).to_numpy()
+    # bb_mid = df['kc_middle'].astype(float).to_numpy()
+    # bb_low = df['kc_lower'].astype(float).to_numpy()
+    # fig.add_trace(go.Line(x=df.index, y=bb_high, line=dict(color='green', width=1), name='BB High'), row=1, col=1)
+    # fig.add_trace(go.Line(x=df.index, y=bb_mid, line=dict(color='#ffd866', width=1), name='BB Mid'), row=1, col=1)
+    # fig.add_trace(go.Line(x=df.index, y=bb_low, line=dict(color='red', width=1), name='BB Low'), row=1, col=1)
+
+    # #  Add buy and sell indicators
+    # fig.add_trace(
+    #     go.Scatter(x=df.index, y=np.array(entry_prices, dtype=np.float32), marker_symbol='arrow-up', marker=dict(
+    #         color='green', size=15
+    #     ), mode='markers', name='Buy'))
+    # fig.add_trace(
+    #     go.Scatter(x=df.index, y=np.array(exit_prices, dtype=np.float32), marker_symbol='arrow-down', marker=dict(
+    #         color='red', size=15
+    #     ), mode='markers', name='Sell'))
+
+    # profit = dfs['profit'].to_numpy()
+    # losses = dfs['losses'].to_numpy()
+    # date = dfs['date'].to_numpy()
+    # values = profit + losses
+
+
+    # fig.add_trace(go.Pie(labels=date,
+    #                      values = values,
+    #                      hovertemplate = "%{label}: <br>Value: %{value} ",
+    #                      showlegend=True,
+    #                      textposition='inside',
+    #                      rotation=90), 2, 1)
+    
+    # fig.add_trace(go.Bar(x = date, y = profit, name = 'Profit',marker=dict(color='green')), 2, 2)
+    # fig.add_trace(go.Bar(x = date, y = losses,name = 'Losses', marker=dict(color='red')), 2, col=2)
+
+    # fig.update_layout(
+    #     title={'text': f'{symbol} with BB-RSI-KC' + '/ interval: ' + interval + '-starttime: ' + starttime, 'x': 0.5},
+    #     autosize=False,
+    #     width=2000, height=3000)
+    # fig.update_yaxes(range=[0, 1000000000], secondary_y=True)
+    # fig.update_yaxes(visible=True, secondary_y=True)  # hide range slider
+
+    # fig.show()
+
+    fig = make_subplots(rows=1  , cols=1, subplot_titles=['Close + BB','RSI','STC'])
     df.set_index('date', inplace=True)
-    df.index = pd.to_datetime(df.index, unit='ms')  # index set to first column = date_and_time
-
+    df.index = pd.to_datetime(df.index, unit='ms') # index set to first column = date_and_time
+    
     #  Plot close price
-    fig.add_trace(
-        go.Line(x=df.index, y=np.array(df['close'], dtype=np.float32), line=dict(color='blue', width=1), name='Close'),
-        row=1, col=1)
-
+    fig.add_trace(go.Line(x=df.index, y=np.array(df['close'], dtype=np.float32), line=dict(color='blue', width=1), name='Close'),row=1, col=1)
+    
     #  Plot bollinger bands
     bb_high = df['kc_upper'].astype(float).to_numpy()
     bb_mid = df['kc_middle'].astype(float).to_numpy()
@@ -124,37 +192,58 @@ def plot_graph(symbol, df, entry_prices, exit_prices):
     fig.add_trace(go.Line(x=df.index, y=bb_high, line=dict(color='green', width=1), name='BB High'), row=1, col=1)
     fig.add_trace(go.Line(x=df.index, y=bb_mid, line=dict(color='#ffd866', width=1), name='BB Mid'), row=1, col=1)
     fig.add_trace(go.Line(x=df.index, y=bb_low, line=dict(color='red', width=1), name='BB Low'), row=1, col=1)
-
+   
     #  Add buy and sell indicators
-    fig.add_trace(
-        go.Scatter(x=df.index, y=np.array(entry_prices, dtype=np.float32), marker_symbol='arrow-up', marker=dict(
-            color='green', size=15
-        ), mode='markers', name='Buy'))
-    fig.add_trace(
-        go.Scatter(x=df.index, y=np.array(exit_prices, dtype=np.float32), marker_symbol='arrow-down', marker=dict(
-            color='red', size=15
-        ), mode='markers', name='Sell'))
+    fig.add_trace(go.Scatter(x=df.index, y=np.array(entry_prices, dtype=np.float32), marker_symbol='arrow-up', marker=dict(color='green', size=15), mode='markers', name='Buy'),1,1)
+    fig.add_trace(go.Scatter(x=df.index, y=np.array(exit_prices, dtype=np.float32), marker_symbol='arrow-down', marker=dict(color='red', size=15), mode='markers', name='Sell'),1,1)
 
-    fig.update_layout(
-        title={'text': f'{symbol} with BB-RSI-KC' + '/ interval: ' + interval + '-starttime: ' + starttime, 'x': 0.5},
-        autosize=False,
-        width=2000, height=3000)
+    fig.update_layout(showlegend=False, title=dict(text="Visualization",font=dict(family="Arial", size=20,color='#283747')))  
     fig.update_yaxes(range=[0, 1000000000], secondary_y=True)
     fig.update_yaxes(visible=True, secondary_y=True)  # hide range slider
 
+    specs = [[{'type':'pie'}, {"type": "bar"}]]
+    fig1 = make_subplots(rows=1, cols=2, specs=specs, shared_yaxes = True, subplot_titles=['Pie Chart', 'Grouped Bar Chart'])
+
+    profit = dfs['profit'].to_numpy()
+    losses = dfs['losses'].to_numpy()
+    date = dfs['date'].to_numpy()
+    values = profit + losses
+
+    #My data creation##                    
+    fig1.add_trace(go.Pie(
+                                labels = date, 
+                                values = values,
+                                hole = 0.6,
+                                marker_colors = ['#353837','#646665', '#8e9492', '#c9d1ce'],
+                                textinfo='percent+value',  ## ADD - display both
+                                ), 1, 1)  
+    
+    ## Create individual traces for Male and Female
+    fig1.append_trace(go.Bar(x = date, y = profit, name = 'profit', textposition = 'auto', marker=dict(color='green')), 1, 2)
+    fig1.append_trace(go.Bar(x = date, y = losses, name = 'losses', textposition = 'auto', marker=dict(color='red')), 1, 2)
+
+    fig1.show()
     fig.show()
 
 
 def backTest(symbol):
     try:
         symbol = symbol + "USDT"
-        df = get_historical_data(symbol)
+        dt = 1
+        
+        if dt == 1:
+            df = get_historical_data(symbol)
+        else:
+            df = getdf()
 
+
+        print("1: ",len(df['close']))
         df['kc_middle'], df['kc_upper'], df['kc_lower'] = get_kc(df['high'], df['low'], df['close'], 20, 2, 10)
+        print("2: ",len(df['close']))
         buy_price, sell_price, kc_signal, date_signal = implement_kc_strategy(df['close'], df['kc_upper'],
-                                                                              df['kc_lower'], df['date'])
+                                                                              df['kc_lower'], df['date'], dt)
+        print("3: ",len(buy_price))
 
-        # plot_graph(symbol, df, buy_price, sell_price)
         position = []
         position_date = []
         for i in range(len(kc_signal)):
@@ -181,7 +270,7 @@ def backTest(symbol):
         kc_signal = pd.DataFrame(kc_signal).rename(columns={0: 'kc_signal'}).set_index(df.index)
         position = pd.DataFrame(position).rename(columns={0: 'kc_position'}).set_index(df.index)
         position_date = pd.DataFrame(position_date).rename(columns={0: 'position_date'}).set_index(df.index)
-
+ 
         frames = [close_price, kc_upper, kc_lower, kc_signal, position, position_date]
         strategy = pd.concat(frames, join='inner', axis=1)
 
@@ -194,7 +283,7 @@ def backTest(symbol):
 
         kc_strategy_ret_df = pd.DataFrame(kc_strategy_ret).rename(columns={0: 'kc_returns'})
 
-        investment_value = 500
+        investment_value = 1000
         currency = 25000
         kc_investment_ret = []
         arr_result = []
@@ -206,24 +295,7 @@ def backTest(symbol):
             tp = (strategy['position_date'][i], returns)
             arr_result.append(tp)
 
- 
-        # Group the tuples by key and calculate the sum of values for each group
-        grouped = [(key, sum(value for _, value in group))
-                   for key, group in groupby(arr_result, key=lambda x: x[0])]
-        print("==========================  {}  ======================".format(symbol))
-
-        for rs in grouped:
-            color = ''
-            tk_profit = floor((round(rs[1],3) / investment_value) * 100)
-            vnd_profit = '{:,.2f}'.format((round(rs[1]*currency,0))).replace(',','*').replace('.', ',').replace('*','.')
-            rs_str = 'date:' + str(rs[0]) +'\t - profit: $'+ str(round(rs[1],3)) + '\t ~ VND: ' +  vnd_profit +   '\t -> ' + str(tk_profit) +'%'
-            if (round(rs[1],3) < 0):
-                color = 'red'
-            else:
-                color = 'green'
-            
-            print(colored(rs_str, color))
-        
+        dfs = groupDateTime(arr_result, symbol, investment_value, currency)
 
         kc_investment_ret_df = pd.DataFrame(kc_investment_ret).rename(columns={0: 'investment_returns'})
         total_investment_ret = round(sum(kc_investment_ret_df['investment_returns']), 2)
@@ -234,11 +306,67 @@ def backTest(symbol):
         print(cl('Profit percentage of the KC strategy : {}%'.format(profit_percentage), attrs=['bold']))
         time_end = float(time.time() - start_time)
         print("--- %s seconds ---" % time_end)
+        # plot_graph(symbol, df, buy_price, sell_price, dfs)
 
         profit_obj = Profit(profit_percentage, investment_value, total_investment_ret, symbol)
         return profit_obj
     except Exception as e:
-        print("exception: "+symbol)
+        print("exception: ", e)
+
+import redis
+from price_data_sql import CryptoPrice
+# rc = redis.Redis(host='192.168.40.11', port=6379, db=1)
+
+def getAllData():
+    closed_prices = []
+    # for key in rc.scan_iter():
+    #     closed_prices.append(CryptoPrice(**json.loads(rc.get(key))))
+    return closed_prices
+
+def getdf():
+    closed_prices = getAllData()
+    df = pd.DataFrame([vars(price) for price in closed_prices])
+
+    df['date'] = df['close_time']
+    df['high'] = pd.to_numeric(df['high_price'], errors='coerce').fillna(0).astype(float)
+    df['low'] = pd.to_numeric(df['low_price'], errors='coerce').fillna(0).astype(float)
+    df['close'] = pd.to_numeric(df['close_price'], errors='coerce').fillna(0).astype(float)
+
+    return df
+
+def groupDateTime(arr_result, symbol, investment_value, currency):
+    # Group the tuples by key and calculate the sum of values for each group
+    arr_result.sort(key=lambda x: x[0])
+    grouped = [(key, sum(value for _, value in group))
+                for key, group in groupby(arr_result, key=lambda x: x[0])]
+    print("==========================  {}  ======================".format(symbol))
+    date = []
+    profit = []
+    losses = []
+    for rs in grouped:
+        color = ''
+        tk_profit = floor((round(rs[1],3) / investment_value) * 100)
+        vnd_profit = '{:,.2f}'.format((round(rs[1]*currency,0))).replace(',','*').replace('.', ',').replace('*','.')
+        rs_str = 'date:' + str(rs[0]) +'\t - profit: $'+ str(round(rs[1],3)) + '\t ~ VND: ' +  vnd_profit +   '\t -> ' + str(tk_profit) +'%'
+        
+        date.append(rs[0])
+        if (round(rs[1],3) < 0):
+            losses.append(rs[1])
+            profit.append(0)
+            color = 'red'
+        else:
+            profit.append(rs[1])
+            losses.append(0)
+            color = 'green'
+        print(colored(rs_str, color))
+
+    list = [profit, losses, date]
+    data = pd.DataFrame(list) # Each list would be added as a row
+    data = data.transpose() # To Transpose and make each rows as columns
+    data.columns = ['profit', 'losses', 'date'] # Rename the columns
+    data.head()
+
+    return data
 
 def round_step_size(quantity: Union[float, Decimal], step_size: Union[float, Decimal]) -> float:
     """Rounds a given quantity to a specific step size
@@ -277,7 +405,15 @@ def getQuantity():
 
     return quantity, price
 
+def getDayNumber():
+    date1 = parser.parse(str_date)
+    date2 = parser.parse(str(date.today()))
+    diff =  date2 - date1 
+
+    return str(diff.days) +' day ago UTC' 
+    
 if __name__ == '__main__':
+
     api_key = 'lwaoJYVsMOYVNIBXma32k3PoNzhB5kJ7A6TcRv6cQEqPUTEBMBZHPWiFKZ7bIRqM'  # passkey (saved in bashrc for linux)
     api_secret = 'aDpaIwHf9GVJBiI36aUye5Y2zd1LKCPAUjKIMD9N5ZhzJBqNOJN6Jy09Waw7HBjO'  # secret (saved in bashrc for linux)
     client = Client(api_key, api_secret)
@@ -305,7 +441,7 @@ if __name__ == '__main__':
 
 
     print("Using Binance TestNet Server")
-    alts_list1 = ['1INCH', 'ADA', 'ATOM', 'ANKR', 'ALGO', 'AVAX', 'AAVE', 'AUDIO',
+    alts_list = ['1INCH', 'ADA', 'ATOM', 'ANKR', 'ALGO', 'AVAX', 'AAVE', 'AUDIO',
                   'BAT', 'CHZ', 'COTI', 'FLOW', 'APE', 'BNB', 'ETH',
                   'DOT', 'DOGE', 'EOS', 'ETC', 'ENJ', 'EGLD', 'FTM', 'FIL', 'AXS',
                   'IOTA', 'ICP', 'KSM', 'LINK', 'LTC', 'GALA', 'HBAR',
@@ -315,7 +451,9 @@ if __name__ == '__main__':
 
     arr_profit = []
     # alts_list = ['NEAR']
-    alts_list = ['ZEC', 'TFUEL','RVN','ICP','FTM']
+    flag = 0
+    str_date = '2024-04-22'
+    alts_list1 = ['ZEC', 'TFUEL','RVN','ONE','GALA']
     for sym in alts_list:
         arr_profit.append(backTest(sym))
 

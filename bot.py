@@ -1,6 +1,7 @@
 import os
 import websocket as wb
 from pprint import pprint
+from datetime import datetime
 
 # import talib
 # import numpy as np
@@ -12,7 +13,6 @@ from base_sql import Session
 from price_data_sql import CryptoPrice
 import redis
 import json
-import datetime 
 from fastapi.encoders import jsonable_encoder
 import pandas as pd
 import matplotlib.dates as mpl_dates
@@ -20,12 +20,12 @@ import matplotlib.dates as mpl_dates
 load_dotenv()
 
 # this functions creates the table if it does not exist
-# create_table()
+create_table()
 
 # create a session
 session = Session()
 
-BINANCE_SOCKET = "wss://stream.binance.com:9443/stream?streams=ethusdt@kline_3m"
+BINANCE_SOCKET = "wss://stream.binance.com:9443/stream?streams=ethusdt@kline_1m"
 # BINANCE_SOCKET = "wss://stream.binance.com:9443/stream?streams=ethusdt@kline_3m/btcusdt@kline_3m"
 TRADE_SYMBOL = "ETHUSD"
 closed_prices = []
@@ -34,7 +34,7 @@ API_KEY = os.environ.get("API_KEY")
 API_SECRET = os.environ.get("API_SECRET")
 client = Client(API_KEY, API_SECRET, tld="us")
 
-rc = redis.Redis(host='192.168.40.6', port=6379, db=1)
+rc = redis.Redis(host='192.168.40.11', port=6379, db=1)
 
 def order(side, size, order_type=ORDER_TYPE_MARKET, symbol=TRADE_SYMBOL):
     # order_type = "MARKET" if side == "buy" else "LIMIT"
@@ -80,37 +80,44 @@ def on_message(ws, message):
     low = candle["l"]
     volume = candle["v"]
     interval = candle["i"]
-    event_time = pd.to_datetime(message["data"]["E"], unit='ms').to_pydatetime()
-            
+    event_time = datetime.fromtimestamp(float(message["data"]["E"])/1000).strftime('%Y-%m-%d %H:%M:%S.%f')
+    open_time = datetime.fromtimestamp(float(candle["t"])/1000).strftime('%Y-%m-%d %H:%M:%S.%f')
+    close_time = datetime.fromtimestamp(float(candle["T"])/1000).strftime('%Y-%m-%d %H:%M:%S.%f')
+
     # df['date'] = df['date'].apply(mpl_dates.date2num)
     # print(candle)
-    pprint(f"closed: {closed}")
-    pprint(f"open: {open}")
-    pprint(f"high: {high}")
-    pprint(f"low: {low}")
-    pprint(f"volume: {volume}")
-    pprint(f"interval: {interval}")
-    pprint(f"event_time: {event_time}")
-    # # create price entries
+    # pprint(f"closed: {closed}")
+    # pprint(f"open: {open}")
+    # pprint(f"high: {high}")
+    # pprint(f"low: {low}")
+    # pprint(f"volume: {volume}")
+    # pprint(f"interval: {interval}")
+    # pprint(f"event_time: {event_time}")
+    # pprint(f"open_time: {open_time}")
+    # pprint(f"close_time: {close_time}")
+
+    # create price entries
     # print(symbol)
     # print("==========================================================================")
     # Create a datetime object     
 
-    # crypto = CryptoPrice(
-    #     crypto_name=symbol,
-    #     open_price=open,
-    #     close_price=closed,
-    #     high_price=high,
-    #     low_price=low,
-    #     volume=volume,
-    #     interval=interval,
-    #     created_time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") ,
-    #     event_time = event_time
-    # )
-    # session.add(crypto)
-    # session.commit()
-    # save_redis(crypto)
-    # session.close()
+    crypto = CryptoPrice(
+        crypto_name=symbol,
+        open_price=open,
+        close_price=closed,
+        high_price=high,
+        low_price=low,
+        volume=volume,
+        interval=interval,
+        created_time= datetime.now().strftime("%Y-%m-%d %H:%M:%S") ,
+        event_time = event_time,
+        open_time = open_time,
+        close_time = close_time
+    )
+    session.add(crypto)
+    session.commit()
+    save_redis(crypto)
+    session.close()
 
 
 ws = wb.WebSocketApp(BINANCE_SOCKET, on_open=on_open, on_close=on_close, on_error=on_error, on_message=on_message)

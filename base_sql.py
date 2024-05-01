@@ -14,7 +14,7 @@ if db:
     db = db
 else:
     # if no variable is specified, use the default string below
-    db = "postgresql+psycopg2://postgres:postgres123@192.168.40.6:5432/bot_crypto"
+    db = "postgresql+psycopg2://postgres:postgres123@192.168.40.11:5432/bot_crypto"
 
 engine = create_engine(db)
 engine.connect()

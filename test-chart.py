@@ -1,4 +1,5 @@
 import datetime
+# from datetime import datetime
 
 import dash
 from dash import Dash, dcc, html, Input, Output, callback
@@ -7,6 +8,7 @@ import plotly
 # pip install pyorbital
 from pyorbital.orbital import Orbital
 satellite = Orbital('TERRA')
+# currentDateAndTime = datetime.now()
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -28,6 +30,9 @@ app.layout = html.Div(
 @callback(Output('live-update-graph', 'figure'),
               Input('interval-component', 'n_intervals'))
 def update_graph_live(n):
+
+    # print("run on {}".format(currentDateAndTime))
+
     satellite = Orbital('TERRA')
     data = {
         'time': [],
@@ -74,4 +79,5 @@ def update_graph_live(n):
 
 
 if __name__ == '__main__':
+    # print("start {}".format(currentDateAndTime))
     app.run(debug=True)

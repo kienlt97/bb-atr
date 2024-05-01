@@ -22,8 +22,10 @@ class CryptoPrice(Base):
     interval = Column(String(5))
     created_time = Column(DateTime())
     event_time = Column(DateTime())
+    open_time = Column(DateTime())
+    close_time = Column(DateTime())
 
-    def __int__(self, crypto_name, close_price, open_price, high_price, low_price, volume, interval, created_time, event_time):
+    def __int__(self, crypto_name, close_price, open_price, high_price, low_price, volume, interval, created_time, event_time, open_time, close_time):
         self.crypto_name = crypto_name
         self.open_price = open_price
         self.close_price = close_price
@@ -33,3 +35,5 @@ class CryptoPrice(Base):
         self.interval = interval
         self.created_time = created_time
         self.event_time = event_time
+        self.open_time = open_time
+        self.close_time = close_time
