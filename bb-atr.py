@@ -15,35 +15,31 @@ from decimal import Decimal
 from typing import Union, Optional, Dict
 import json
 from decimal import Decimal as D, ROUND_DOWN, ROUND_UP
-import time
+import time as t
 from forex_python.converter import CurrencyRates
 from dateutil import parser
-from datetime import date,datetime
+from datetime import datetime, timedelta, time, date
 
-start_time = time.time()
+start_time = t.time()
 c = CurrencyRates()
 
 plt.rcParams['figure.figsize'] = (20, 10)
 plt.style.use('fivethirtyeight')
 
-starttime = ''  # to start for 1 day ago
 interval = '1m'
 flag = 0
-str_date = ''
 
-# symbol = 'DOGEUSDT'   # Change symbol here e.g. BTCUSDT, BNBBTC, ETHUSDT, NEOBTC
 api_key = 'lwaoJYVsMOYVNIBXma32k3PoNzhB5kJ7A6TcRv6cQEqPUTEBMBZHPWiFKZ7bIRqM'  # passkey (saved in bashrc for linux)
 api_secret = 'aDpaIwHf9GVJBiI36aUye5Y2zd1LKCPAUjKIMD9N5ZhzJBqNOJN6Jy09Waw7HBjO'  # secret (saved in bashrc for linux)
 
 
 def get_historical_data(symbol):
-    starttime = getDayNumber()
+    start_str = datetime.combine(date.today() - timedelta(days=1), time(12, 0, 0))
+    end_str =  datetime.combine(date.today(), time(23, 59, 59))
+    print("reqest get_historical_data with start_time: {} -  end_time: {}".format(start_str, end_str))
 
-    start_str = str(parser.parse('2024-04-22 00:00:00'))
-    end_str = str(parser.parse('2024-04-24 23:59:00'))
-
-    bars = client.get_historical_klines(symbol, interval, start_str=start_str,
-        end_str=end_str)
+    bars = client.get_historical_klines(symbol, interval, start_str = str(start_str), end_str = str(end_str))
+ 
 
     for line in bars:  # Keep only first 6 columns, 'date' 'open' 'high' 'low' 'close','volume'
         del line[6:]
@@ -77,111 +73,111 @@ def get_kc(high, low, close, kc_lookback, multiplier, atr_lookback):
 
 
 # KELTNER CHANNEL STRATEGY
-def implement_kc_strategy(prices, kc_upper, kc_lower, date_time, dt):
+def implement_kc_strategy(prices, kc_upper, kc_lower, date_time):
     buy_price = []
     sell_price = []
     kc_signal = []
     date_signal = []
     fomatDT = ''
+    quantity = 1100
 
     if flag == 0:
-        fomatDT = '%d/%m/%Y'
+        fomatDT = '%Y-%m-%d %H:%M:%S'
     else:
         fomatDT = '%m/%Y'
     
-    if dt == 1:
-        date_time = date_time.apply(lambda x: pd.to_datetime(x, unit='ms').strftime(fomatDT))
-    else:
-        date_time = date_time.apply(lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%f').strftime(fomatDT))
-
+    date_time = date_time.apply(lambda x: pd.to_datetime(x, unit='ms').strftime(fomatDT)) 
     signal = 0
+    bougth_value = 0
     for i in range(0, len(prices)):
         date_signal.append(date_time[i])
-        if prices[i] < kc_lower[i] and i < len(prices) - 1 and prices[i + 1] > prices[i]:
-            if signal != 1:
-                buy_price.append(prices[i])
-                sell_price.append(np.nan)
-                signal = 1
-                kc_signal.append(signal)
-            else:
-                buy_price.append(np.nan)
-                sell_price.append(np.nan)
-                kc_signal.append(0)
-        elif prices[i] > kc_upper[i] and i < len(prices) - 1 and prices[i + 1] < prices[i]:
-            if signal != -1:
-                buy_price.append(np.nan)
-                sell_price.append(prices[i])
-                signal = -1
-                kc_signal.append(signal)
-            else:
-                buy_price.append(np.nan)
-                sell_price.append(np.nan)
-                kc_signal.append(0)
+        if prices[i] < kc_lower[i]:
+            if i < len(prices) - 1:
+                if prices[i + 1] < prices[i]:
+                    if signal != 1:
+                        buy_price.append(prices[i+1])
+                        bougth_value = prices[i+1]
+                        sell_price.append(0)
+                        signal = 1
+                        kc_signal.append(signal)
+                    else:
+                        buy_price.append(0)
+                        sell_price.append(0)
+                        kc_signal.append(0)
+                else:
+                    buy_price.append(0)
+                    sell_price.append(0)
+                    kc_signal.append(0)
+            elif i == len(prices) - 1:
+                if prices[i] < prices[i-1]:
+                    if signal != 1:
+                        buy_price.append(prices[i])
+                        bougth_value = prices[i]
+                        sell_price.append(0)
+                        signal = 1
+                        kc_signal.append(signal)
+                    else:
+                        buy_price.append(0)
+                        sell_price.append(0)
+                        kc_signal.append(0)
+                else:
+                    buy_price.append(0)
+                    sell_price.append(0)
+                    kc_signal.append(0)
+        elif prices[i] > kc_upper[i]:
+            if i < len(prices) - 1:
+                if prices[i + 1] > prices[i] and prices[i+ 1] > bougth_value:
+                    if signal != -1:
+                        print('date: {}, prices:{} - bougth_value:{}'.format(date_time[i+1], prices[i+ 1], bougth_value ))
+                        buy_price.append(0)
+                        sell_price.append(prices[i+1])
+                        signal = -1
+                        kc_signal.append(signal)
+                    else:
+                        buy_price.append(0)
+                        sell_price.append(0)
+                        kc_signal.append(0)
+                else:
+                    buy_price.append(0)
+                    sell_price.append(0)
+                    kc_signal.append(0)
+            elif i == len(prices) - 1:
+                print('prices:{} - bougth_value:{}',prices[i], bougth_value )
+                if prices[i] > prices[i - 1] and prices[i] > bougth_value:
+                    if signal != -1:
+                        buy_price.append(0)
+                        sell_price.append(prices[i])
+                        signal = -1
+                        kc_signal.append(signal)
+                    else:
+                        buy_price.append(0)
+                        sell_price.append(0)
+                        kc_signal.append(0)
+                else:
+                    buy_price.append(0)
+                    sell_price.append(0)
+                    kc_signal.append(0)
         else:
-            buy_price.append(np.nan)
-            sell_price.append(np.nan)
+            buy_price.append(0)
+            sell_price.append(0)
             kc_signal.append(0)
+    
+    sell_price = [i for i in sell_price if i != 0.0]
+    buy_price = [i for i in buy_price if i != 0.0][:-1]
+    print('sell_price', sell_price)
+    print('buy_price', buy_price)
+    _profit  = np.sum(sell_price)*quantity - np.sum(buy_price)*quantity
+    print(_profit*23000)
+
     return buy_price, sell_price, kc_signal, date_signal
 
 
 def plot_graph(symbol, df, entry_prices, exit_prices, dfs):
-    # fig = make_subplots(rows=0, cols=1, subplot_titles=['Close + BB-ATR'])
-
-    # df.set_index('date', inplace=True)
-    # df.index = pd.to_datetime(df.index, unit='ms')  # index set to first column = date_and_time
-
-    # #  Plot close price
-    # fig.add_trace(
-    #     go.Line(x=df.index, y=np.array(df['close'], dtype=np.float32), line=dict(color='blue', width=1), name='Close'),
-    #     row=1, col=1)
-
-    # #  Plot bollinger bands
-    # bb_high = df['kc_upper'].astype(float).to_numpy()
-    # bb_mid = df['kc_middle'].astype(float).to_numpy()
-    # bb_low = df['kc_lower'].astype(float).to_numpy()
-    # fig.add_trace(go.Line(x=df.index, y=bb_high, line=dict(color='green', width=1), name='BB High'), row=1, col=1)
-    # fig.add_trace(go.Line(x=df.index, y=bb_mid, line=dict(color='#ffd866', width=1), name='BB Mid'), row=1, col=1)
-    # fig.add_trace(go.Line(x=df.index, y=bb_low, line=dict(color='red', width=1), name='BB Low'), row=1, col=1)
-
-    # #  Add buy and sell indicators
-    # fig.add_trace(
-    #     go.Scatter(x=df.index, y=np.array(entry_prices, dtype=np.float32), marker_symbol='arrow-up', marker=dict(
-    #         color='green', size=15
-    #     ), mode='markers', name='Buy'))
-    # fig.add_trace(
-    #     go.Scatter(x=df.index, y=np.array(exit_prices, dtype=np.float32), marker_symbol='arrow-down', marker=dict(
-    #         color='red', size=15
-    #     ), mode='markers', name='Sell'))
-
-    # profit = dfs['profit'].to_numpy()
-    # losses = dfs['losses'].to_numpy()
-    # date = dfs['date'].to_numpy()
-    # values = profit + losses
-
-
-    # fig.add_trace(go.Pie(labels=date,
-    #                      values = values,
-    #                      hovertemplate = "%{label}: <br>Value: %{value} ",
-    #                      showlegend=True,
-    #                      textposition='inside',
-    #                      rotation=90), 2, 1)
-    
-    # fig.add_trace(go.Bar(x = date, y = profit, name = 'Profit',marker=dict(color='green')), 2, 2)
-    # fig.add_trace(go.Bar(x = date, y = losses,name = 'Losses', marker=dict(color='red')), 2, col=2)
-
-    # fig.update_layout(
-    #     title={'text': f'{symbol} with BB-RSI-KC' + '/ interval: ' + interval + '-starttime: ' + starttime, 'x': 0.5},
-    #     autosize=False,
-    #     width=2000, height=3000)
-    # fig.update_yaxes(range=[0, 1000000000], secondary_y=True)
-    # fig.update_yaxes(visible=True, secondary_y=True)  # hide range slider
-
-    # fig.show()
 
     fig = make_subplots(rows=1  , cols=1, subplot_titles=['Close + BB','RSI','STC'])
+    df['date'] = df['date'].apply(lambda x: datetime.fromtimestamp(x / 1000.0).strftime('%Y-%m-%d %H:%M:%S') )
     df.set_index('date', inplace=True)
-    df.index = pd.to_datetime(df.index, unit='ms') # index set to first column = date_and_time
-    
+ 
     #  Plot close price
     fig.add_trace(go.Line(x=df.index, y=np.array(df['close'], dtype=np.float32), line=dict(color='blue', width=1), name='Close'),row=1, col=1)
     
@@ -229,23 +225,14 @@ def plot_graph(symbol, df, entry_prices, exit_prices, dfs):
 def backTest(symbol):
     try:
         symbol = symbol + "USDT"
-        dt = 1
+        df = get_historical_data(symbol)
         
-        if dt == 1:
-            df = get_historical_data(symbol)
-        else:
-            df = getdf()
-
-
-        print("1: ",len(df['close']))
         df['kc_middle'], df['kc_upper'], df['kc_lower'] = get_kc(df['high'], df['low'], df['close'], 20, 2, 10)
-        print("2: ",len(df['close']))
         buy_price, sell_price, kc_signal, date_signal = implement_kc_strategy(df['close'], df['kc_upper'],
-                                                                              df['kc_lower'], df['date'], dt)
-        print("3: ",len(buy_price))
-
+                                                                              df['kc_lower'], df['date'])
         position = []
         position_date = []
+
         for i in range(len(kc_signal)):
             position_date.append(date_signal[i])
             if kc_signal[i] > 1:
@@ -283,7 +270,7 @@ def backTest(symbol):
 
         kc_strategy_ret_df = pd.DataFrame(kc_strategy_ret).rename(columns={0: 'kc_returns'})
 
-        investment_value = 1000
+        investment_value = 100
         currency = 25000
         kc_investment_ret = []
         arr_result = []
@@ -295,7 +282,7 @@ def backTest(symbol):
             tp = (strategy['position_date'][i], returns)
             arr_result.append(tp)
 
-        dfs = groupDateTime(arr_result, symbol, investment_value, currency)
+        # dfs = groupDateTime(arr_result, symbol, investment_value, currency)
 
         kc_investment_ret_df = pd.DataFrame(kc_investment_ret).rename(columns={0: 'investment_returns'})
         total_investment_ret = round(sum(kc_investment_ret_df['investment_returns']), 2)
@@ -304,35 +291,15 @@ def backTest(symbol):
         vnd_profit_total = '{:,.2f}'.format((round(total_investment_ret * currency,0))).replace(',','*').replace('.', ',').replace('*','.')
         print(cl('Profit gained from the KC strategy by investing ${}, in INTC : ${} ~ {} VND'.format(investment_value,total_investment_ret, vnd_profit_total), attrs=['bold']))
         print(cl('Profit percentage of the KC strategy : {}%'.format(profit_percentage), attrs=['bold']))
-        time_end = float(time.time() - start_time)
+        time_end = float(t.time() - start_time)
         print("--- %s seconds ---" % time_end)
         # plot_graph(symbol, df, buy_price, sell_price, dfs)
 
         profit_obj = Profit(profit_percentage, investment_value, total_investment_ret, symbol)
         return profit_obj
     except Exception as e:
-        print("exception: ", e)
+        print("exception backTest: ", e)
 
-import redis
-from price_data_sql import CryptoPrice
-# rc = redis.Redis(host='192.168.40.11', port=6379, db=1)
-
-def getAllData():
-    closed_prices = []
-    # for key in rc.scan_iter():
-    #     closed_prices.append(CryptoPrice(**json.loads(rc.get(key))))
-    return closed_prices
-
-def getdf():
-    closed_prices = getAllData()
-    df = pd.DataFrame([vars(price) for price in closed_prices])
-
-    df['date'] = df['close_time']
-    df['high'] = pd.to_numeric(df['high_price'], errors='coerce').fillna(0).astype(float)
-    df['low'] = pd.to_numeric(df['low_price'], errors='coerce').fillna(0).astype(float)
-    df['close'] = pd.to_numeric(df['close_price'], errors='coerce').fillna(0).astype(float)
-
-    return df
 
 def groupDateTime(arr_result, symbol, investment_value, currency):
     # Group the tuples by key and calculate the sum of values for each group
@@ -344,21 +311,22 @@ def groupDateTime(arr_result, symbol, investment_value, currency):
     profit = []
     losses = []
     for rs in grouped:
-        color = ''
-        tk_profit = floor((round(rs[1],3) / investment_value) * 100)
-        vnd_profit = '{:,.2f}'.format((round(rs[1]*currency,0))).replace(',','*').replace('.', ',').replace('*','.')
-        rs_str = 'date:' + str(rs[0]) +'\t - profit: $'+ str(round(rs[1],3)) + '\t ~ VND: ' +  vnd_profit +   '\t -> ' + str(tk_profit) +'%'
-        
-        date.append(rs[0])
-        if (round(rs[1],3) < 0):
-            losses.append(rs[1])
-            profit.append(0)
-            color = 'red'
-        else:
-            profit.append(rs[1])
-            losses.append(0)
-            color = 'green'
-        print(colored(rs_str, color))
+        if round(rs[1],3) != 0:
+            color = ''
+            tk_profit = floor((round(rs[1],3) / investment_value) * 100)
+            vnd_profit = '{:,.2f}'.format((round(rs[1]*currency,0))).replace(',','*').replace('.', ',').replace('*','.')
+            rs_str = 'date:' + str(rs[0]) +'\t - profit: $'+ str(round(rs[1],3)) + '\t ~ VND: ' +  vnd_profit +   '\t -> ' + str(tk_profit) +'%'
+            
+            date.append(rs[0])
+            if (round(rs[1],3) < 0):
+                losses.append(rs[1])
+                profit.append(0)
+                color = 'red'
+            else:
+                profit.append(rs[1])
+                losses.append(0)
+                color = 'green'
+            print(colored(rs_str, color))
 
     list = [profit, losses, date]
     data = pd.DataFrame(list) # Each list would be added as a row
@@ -368,33 +336,18 @@ def groupDateTime(arr_result, symbol, investment_value, currency):
 
     return data
 
-def round_step_size(quantity: Union[float, Decimal], step_size: Union[float, Decimal]) -> float:
-    """Rounds a given quantity to a specific step size
 
-    :param quantity: required
-    :param step_size: required
+def getQuantitySell():
+    balance = client.get_asset_balance(asset='TFUEL')
+    return int(float(balance['free']))
 
-    :return: decimal
-    """
-    quantity = Decimal(str(quantity))
-    return float(quantity - quantity % Decimal(str(step_size)))
-
-def getQuantity():
+def getQuantityBuy():
     balance = client.get_asset_balance(asset='USDT')
     trades = client.get_recent_trades(symbol=symbol)
-    quantity = (float(balance['free'])) / (float(trades[0]['price'])) * 0.83
-    price = (float(trades[0]['price']))
- 
+    quantity = (float(balance['free'])) / (float(trades[0]['price'])) 
     response = client.get_symbol_info(symbol=symbol)
-    priceFilterFloat = format(float(response["filters"][0]["tickSize"]), '.20f')
     lotSizeFloat = format(float(response["filters"][1]["stepSize"]), '.20f')
-    # PriceFilter
-    numberAfterDot = str(priceFilterFloat.split(".")[1])
-    indexOfOne = numberAfterDot.find("1")
-    if indexOfOne == -1:
-        price = int(price)
-    else:
-        price = round(float(price), int(indexOfOne - 1))
+
     # LotSize
     numberAfterDotLot = str(lotSizeFloat.split(".")[1])
     indexOfOneLot = numberAfterDotLot.find("1")
@@ -403,57 +356,61 @@ def getQuantity():
     else:
         quantity = round(float(quantity), int(indexOfOneLot))
 
-    return quantity, price
+    return quantity
 
-def getDayNumber():
-    date1 = parser.parse(str_date)
-    date2 = parser.parse(str(date.today()))
-    diff =  date2 - date1 
+import requests
 
-    return str(diff.days) +' day ago UTC' 
-    
 if __name__ == '__main__':
 
     api_key = 'lwaoJYVsMOYVNIBXma32k3PoNzhB5kJ7A6TcRv6cQEqPUTEBMBZHPWiFKZ7bIRqM'  # passkey (saved in bashrc for linux)
     api_secret = 'aDpaIwHf9GVJBiI36aUye5Y2zd1LKCPAUjKIMD9N5ZhzJBqNOJN6Jy09Waw7HBjO'  # secret (saved in bashrc for linux)
     client = Client(api_key, api_secret)
-    # symbol = 'DOGEUSDT'
-    # df = get_historical_data('NEARUSDT')
-
-    # # order = client.get_order(symbol = symbol, orderId = 4946721858) # 4946721858, 4946503030
-    # # print(json.dumps(order, indent=2)) 
-    # quantity, price = getQuantity()
-    # print(quantity)
-    # print(price)
+    print("Using Binance TestNet Server")
+ 
+    token = '7003550557:AAELbBLiBT5Ka686nCZ43kQCIm468gu4Gds'
+    method = 'sendMessage'
+    chat_id = '1489044599'
+        # order = client.get_order(symbol = symbol, orderId = 4946721858) # 4946721858, 4946503030
+    # print(json.dumps(order, indent=2)) 
     
-    # market_res = client.order_market_sell(symbol=symbol,quantity = 74)
-    # market_res = client.order_market_buy(symbol=symbol,quantity = 74)
-
+    # quantity = getQuantitySell()
+    # market_res = client.order_market_sell(symbol=symbol,quantity = quantity)
     # print(json.dumps(market_res, indent=2))
 
+    # quantity = getQuantityBuy()
+    # market_res = client.order_market_buy(symbol=symbol,quantity = quantity)
+    # print(json.dumps(market_res, indent=2))
+   
+    # message = ''
+    # for i in range(0, len(market_res['fills'])):
+    #     price = market_res['fills'][i]['price']
+    #     qty = market_res['fills'][i]['qty']
+    #     commission = market_res['fills'][i]['commission']
+    #     transactTime = market_res['transactTime']
+    #     total_money = float(price) * round(float(qty), 2)
+    #     message = message + "\n📢🧧🧧 Sell with entry price: {} - quantity: {} -> :  at: total money: {} - commission {}:  asset after cost: {} at time: {} 📢🧧🧧".format(price, round(float(qty), 2), total_money, commission, float(total_money) - float(commission), datetime.fromtimestamp(transactTime / 1000.0).strftime('%Y-%m-%d %H:%M:%S') )
+    
+    # message = "🔔💹 Buy with entry price: {} - quantity: {} -> :  at: total money: {} - commission {}:  asset after cost: {} at time: {} 🔔💹".format(price, round(float(qty), 2), total_money, commission, float(total_money) - float(commission), datetime.fromtimestamp(transactTime / 1000.0).strftime('%Y-%m-%d %H:%M:%S') )
+    # message ="<b>{}</b>&parse_mode=HTML".format(message)
+    # url = 'https://api.telegram.org/bot{0}/{1}?chat_id={2}&text={3}'.format(token, method, chat_id, message)
+    # response = requests.post(url=url).json()
+    # print(response)
 
-    ################################################
-    # print(buy_order)
-    # exchange_info = client.get_exchange_info()
+    # print("Using Binance TestNet Server")
+    # alts_list = ['1INCH', 'ADA', 'ATOM', 'ANKR', 'ALGO', 'AVAX', 'AAVE', 'AUDIO',
+    #               'BAT', 'CHZ', 'COTI', 'FLOW', 'APE', 'BNB', 'ETH',
+    #               'DOT', 'DOGE', 'EOS', 'ETC', 'ENJ', 'EGLD', 'FTM', 'FIL', 'AXS',
+    #               'IOTA', 'ICP', 'KSM', 'LINK', 'LTC', 'GALA', 'HBAR',
+    #               'MATIC', 'MANA', 'NEO', 'NEAR', 'ONE', 'RVN', 'SAND', 'XTZ', 'ZEC',
+    #               'SOL', 'TFUEL', 'THETA', 'UNI', 'VET', 'XRP', 'XLM', 'ZIL'
+    #   
+    #             ]
 
-    # # for i in range(len(exchange_info['symbols'])) :
-    # #     arr_profit.append(backTest(exchange_info['symbols'][i]['symbol'], i))
-
-
-    print("Using Binance TestNet Server")
-    alts_list = ['1INCH', 'ADA', 'ATOM', 'ANKR', 'ALGO', 'AVAX', 'AAVE', 'AUDIO',
-                  'BAT', 'CHZ', 'COTI', 'FLOW', 'APE', 'BNB', 'ETH',
-                  'DOT', 'DOGE', 'EOS', 'ETC', 'ENJ', 'EGLD', 'FTM', 'FIL', 'AXS',
-                  'IOTA', 'ICP', 'KSM', 'LINK', 'LTC', 'GALA', 'HBAR',
-                  'MATIC', 'MANA', 'NEO', 'NEAR', 'ONE', 'RVN', 'SAND', 'XTZ', 'ZEC',
-                  'SOL', 'TFUEL', 'THETA', 'UNI', 'VET', 'XRP', 'XLM', 'ZIL'
-                  ]
-
-    arr_profit = []
-    # alts_list = ['NEAR']
     flag = 0
-    str_date = '2024-04-22'
-    alts_list1 = ['ZEC', 'TFUEL','RVN','ONE','GALA']
+    arr_profit = []
+    alts_list = ['TFUEL']
+    # alts_list1 = ['ZEC', 'TFUEL','RVN','ONE','GALA']
+    # alts_list = ['TFUEL', 'ZEC','RVN','NEAR','FLOW']
     for sym in alts_list:
         arr_profit.append(backTest(sym))
 
@@ -462,13 +419,6 @@ if __name__ == '__main__':
     total = 0
     for p in arr_profit:
         total += p.total_investment_ret
-        # if p.profit_percentage > -15:
-        #     total += p.total_investment_ret
-        #     print("================================ {} =======================================".format(p.symbol))
-        #     print(cl('Profit gained from the KC strategy by investing ${}, in INTC : {}'.format(p.investment_value,
-        #                                                                                         p.total_investment_ret),
-        #              attrs=['bold']))
-        #     print(cl('Profit percentage of the KC strategy : {}%'.format(p.profit_percentage), attrs=['bold']))
 
     vnd_profit_total = '{:,.2f}'.format((round(total * 25000,0))).replace(',','*').replace('.', ',').replace('*','.')
     print('${} ~ {}'.format(total, vnd_profit_total))

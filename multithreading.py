@@ -1,42 +1,32 @@
 # IMPORTING PACKAGES
 
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 from termcolor import colored as cl
 from math import floor
 from binance.client import Client
-from plotly.subplots import make_subplots
-import plotly.graph_objects as go
 from profit_data import Profit
-from itertools import groupby
-from termcolor import colored
-from decimal import Decimal
-from typing import Union, Optional, Dict
-import json
-from decimal import Decimal as D, ROUND_DOWN, ROUND_UP
-import time
+import time as t
 from forex_python.converter import CurrencyRates
 import concurrent.futures
+from dateutil import parser
 
-from datetime import datetime
+from datetime import datetime, date, timedelta, time
 currentDateAndTime = datetime.now()
 
-start_time = time.time()
+start_time = t.time()
 c = CurrencyRates()
-
-plt.rcParams['figure.figsize'] = (20, 10)
-plt.style.use('fivethirtyeight')
-
-starttime = '30 day ago UTC'  # to start for 1 day ago
+ 
 interval = '1m'
-# symbol = 'DOGEUSDT'   # Change symbol here e.g. BTCUSDT, BNBBTC, ETHUSDT, NEOBTC
 api_key = 'lwaoJYVsMOYVNIBXma32k3PoNzhB5kJ7A6TcRv6cQEqPUTEBMBZHPWiFKZ7bIRqM'  # passkey (saved in bashrc for linux)
 api_secret = 'aDpaIwHf9GVJBiI36aUye5Y2zd1LKCPAUjKIMD9N5ZhzJBqNOJN6Jy09Waw7HBjO'  # secret (saved in bashrc for linux)
 
-
 def get_historical_data(symbol):
-    bars = client.get_historical_klines(symbol, interval, starttime)
+    start_str = str(datetime.combine(date.today() - timedelta(days=7), time(12, 0, 0)))
+    end_str =  str(datetime.combine(date.today(), time(23, 59, 59)))
+
+    bars = client.get_historical_klines(symbol, interval, start_str=start_str,
+        end_str=end_str)
 
     for line in bars:  # Keep only first 6 columns, 'date' 'open' 'high' 'low' 'close','volume'
         del line[6:]
@@ -106,47 +96,7 @@ def implement_kc_strategy(prices, kc_upper, kc_lower, date_time):
             sell_price.append(np.nan)
             kc_signal.append(0)
 
-
     return buy_price, sell_price, kc_signal, date_signal
-
-
-def plot_graph(symbol, df, entry_prices, exit_prices):
-    fig = make_subplots(rows=3, cols=1, subplot_titles=['Close + BB-ATR'])
-
-    df.set_index('date', inplace=True)
-    df.index = pd.to_datetime(df.index, unit='ms')  # index set to first column = date_and_time
-
-    #  Plot close price
-    fig.add_trace(
-        go.Line(x=df.index, y=np.array(df['close'], dtype=np.float32), line=dict(color='blue', width=1), name='Close'),
-        row=1, col=1)
-
-    #  Plot bollinger bands
-    bb_high = df['kc_upper'].astype(float).to_numpy()
-    bb_mid = df['kc_middle'].astype(float).to_numpy()
-    bb_low = df['kc_lower'].astype(float).to_numpy()
-    fig.add_trace(go.Line(x=df.index, y=bb_high, line=dict(color='green', width=1), name='BB High'), row=1, col=1)
-    fig.add_trace(go.Line(x=df.index, y=bb_mid, line=dict(color='#ffd866', width=1), name='BB Mid'), row=1, col=1)
-    fig.add_trace(go.Line(x=df.index, y=bb_low, line=dict(color='red', width=1), name='BB Low'), row=1, col=1)
-
-    #  Add buy and sell indicators
-    fig.add_trace(
-        go.Scatter(x=df.index, y=np.array(entry_prices, dtype=np.float32), marker_symbol='arrow-up', marker=dict(
-            color='green', size=15
-        ), mode='markers', name='Buy'))
-    fig.add_trace(
-        go.Scatter(x=df.index, y=np.array(exit_prices, dtype=np.float32), marker_symbol='arrow-down', marker=dict(
-            color='red', size=15
-        ), mode='markers', name='Sell'))
-
-    fig.update_layout(
-        title={'text': f'{symbol} with BB-RSI-KC' + '/ interval: ' + interval + '-starttime: ' + starttime, 'x': 0.5},
-        autosize=False,
-        width=2000, height=3000)
-    fig.update_yaxes(range=[0, 1000000000], secondary_y=True)
-    fig.update_yaxes(visible=True, secondary_y=True)  # hide range slider
-
-    fig.show()
 
 
 def backTest(symbol):
@@ -157,8 +107,6 @@ def backTest(symbol):
         df['kc_middle'], df['kc_upper'], df['kc_lower'] = get_kc(df['high'], df['low'], df['close'], 20, 2, 10)
         buy_price, sell_price, kc_signal, date_signal = implement_kc_strategy(df['close'], df['kc_upper'],
                                                                               df['kc_lower'], df['date'])
-
-        # plot_graph(symbol, df, buy_price, sell_price)
         position = []
         position_date = []
         for i in range(len(kc_signal)):
@@ -199,7 +147,6 @@ def backTest(symbol):
         kc_strategy_ret_df = pd.DataFrame(kc_strategy_ret).rename(columns={0: 'kc_returns'})
 
         investment_value = 300
-        currency = 25000
         kc_investment_ret = []
         arr_result = []
 
@@ -210,78 +157,16 @@ def backTest(symbol):
             tp = (strategy['position_date'][i], returns)
             arr_result.append(tp)
 
- 
-        # Group the tuples by key and calculate the sum of values for each group
-        # grouped = [(key, sum(value for _, value in group))
-        #            for key, group in groupby(arr_result, key=lambda x: x[0])]
-        # print("==========================  {}  ======================".format(symbol))
-
-        # for rs in grouped:
-        #     color = ''
-        #     tk_profit = floor((round(rs[1],3) / investment_value) * 100)
-        #     vnd_profit = '{:,.2f}'.format((round(rs[1]*currency,0))).replace(',','*').replace('.', ',').replace('*','.')
-        #     rs_str = 'date:' + str(rs[0]) +'\t - profit: $'+ str(round(rs[1],3)) + '\t ~ VND: ' +  vnd_profit +   '\t -> ' + str(tk_profit) +'%'
-        #     if (round(rs[1],3) < 0):
-        #         color = 'red'
-        #     else:
-        #         color = 'green'
-            
-        #     print(colored(rs_str, color))
-        
-
         kc_investment_ret_df = pd.DataFrame(kc_investment_ret).rename(columns={0: 'investment_returns'})
         total_investment_ret = round(sum(kc_investment_ret_df['investment_returns']), 2)
         profit_percentage = floor((total_investment_ret / investment_value) * 100)
     
-        # vnd_profit_total = '{:,.2f}'.format((round(total_investment_ret * currency,0))).replace(',','*').replace('.', ',').replace('*','.')
-        # print(cl('Profit gained from the KC strategy by investing ${}, in INTC : ${} ~ {} VND'.format(investment_value,total_investment_ret, vnd_profit_total), attrs=['bold']))
-        # print(cl('Profit percentage of the KC strategy : {}%'.format(profit_percentage), attrs=['bold']))
-        # time_end = float(time.time() - start_time)
-        # print("--- %s seconds ---" % time_end)
-        if (profit_percentage is None or investment_value is None or total_investment_ret is None):
-            print("=============> {} ========== errrirrr".format(symbol))
-        
+
         profit_obj = Profit(profit_percentage, investment_value, total_investment_ret, symbol)
         return profit_obj
     except Exception as e:
         print("error: " + e)
-
-def round_step_size(quantity: Union[float, Decimal], step_size: Union[float, Decimal]) -> float:
-    """Rounds a given quantity to a specific step size
-
-    :param quantity: required
-    :param step_size: required
-
-    :return: decimal
-    """
-    quantity = Decimal(str(quantity))
-    return float(quantity - quantity % Decimal(str(step_size)))
-
-def getQuantity():
-    balance = client.get_asset_balance(asset='USDT')
-    trades = client.get_recent_trades(symbol=symbol)
-    quantity = (float(balance['free'])) / (float(trades[0]['price'])) * 0.83
-    price = (float(trades[0]['price']))
  
-    response = client.get_symbol_info(symbol=symbol)
-    priceFilterFloat = format(float(response["filters"][0]["tickSize"]), '.20f')
-    lotSizeFloat = format(float(response["filters"][1]["stepSize"]), '.20f')
-    # PriceFilter
-    numberAfterDot = str(priceFilterFloat.split(".")[1])
-    indexOfOne = numberAfterDot.find("1")
-    if indexOfOne == -1:
-        price = int(price)
-    else:
-        price = round(float(price), int(indexOfOne - 1))
-    # LotSize
-    numberAfterDotLot = str(lotSizeFloat.split(".")[1])
-    indexOfOneLot = numberAfterDotLot.find("1")
-    if indexOfOneLot == -1:
-        quantity = int(quantity)
-    else:
-        quantity = round(float(quantity), int(indexOfOneLot))
-
-    return quantity, price
 
 def f_common (alts_list, fname):
     print("start {}:\t {}".format(fname, currentDateAndTime))
@@ -290,7 +175,7 @@ def f_common (alts_list, fname):
         obj = backTest(sym)
         arr_profit.append(obj)
 
-    time_end = float(time.time() - start_time)/60.0
+    time_end = float(t.time() - start_time)/60.0
     print("End -- {} - {} minute ---".format(fname,round(time_end,0)))
 
     return arr_profit
@@ -361,9 +246,6 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                 'THETA', 'UNI', 'VET', 'XRP', 'XLM', 'ZIL'
                   ]
 
-    # arr_profit = []
-    # for sym in alts_list:
-    #     arr_profit.append(backTest(sym))
     ar1 = a[0:3]
     ar2 = a[3:6]
     ar3 = a[6:9]
@@ -403,11 +285,8 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
     total = 0
     arr_profit.sort(key=lambda x: x.profit_percentage)
 
+    arr_profit = arr_profit[43:48]
     for p in arr_profit:
-        if (p is None):
-            print("object null")
-            continue
-        # total += p.total_investment_ret
         if p.profit_percentage > -15:
             total += p.total_investment_ret
             print("================================ {} =======================================".format(p.symbol))
@@ -420,7 +299,6 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
     vnd_profit_total = '{:,.2f}'.format((round(total * 25000,0))).replace(',','*').replace('.', ',').replace('*','.')
     print('${} ~ {}'.format(total, vnd_profit_total))
     
-
-    time_end = float(time.time() - start_time)/60.0
+    time_end = float(t.time() - start_time)/60.0
     print("--- %s total minute ---" % round(time_end,0))
 
