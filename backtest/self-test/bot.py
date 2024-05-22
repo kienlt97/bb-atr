@@ -52,7 +52,6 @@ def on_message(ws, message):
         data = [event_time, float(open), float(high), float(low), float(closed), float(volume)]
         df = pd.DataFrame([data], columns=['date', 'open', 'high', 'low', 'close', 'volume'])
         backTest(df)
-        print("==========================================================================")
 
 
 ws = wb.WebSocketApp(BINANCE_SOCKET, on_open=on_open, on_close=on_close, on_error=on_error, on_message=on_message)

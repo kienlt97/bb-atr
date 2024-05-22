@@ -34,7 +34,7 @@ api_secret = 'aDpaIwHf9GVJBiI36aUye5Y2zd1LKCPAUjKIMD9N5ZhzJBqNOJN6Jy09Waw7HBjO' 
 
 
 def get_historical_data(symbol):
-    start_str = datetime.combine(date.today() - timedelta(days=1), time(12, 0, 0))
+    start_str = datetime.combine(date.today() - timedelta(days=7), time(12, 0, 0))
     end_str =  datetime.combine(date.today(), time(23, 59, 59))
     print("reqest get_historical_data with start_time: {} -  end_time: {}".format(start_str, end_str))
 
@@ -82,94 +82,46 @@ def implement_kc_strategy(prices, kc_upper, kc_lower, date_time):
     quantity = 1100
 
     if flag == 0:
-        fomatDT = '%Y-%m-%d %H:%M:%S'
+        fomatDT = '%Y-%m-%d'
     else:
         fomatDT = '%m/%Y'
     
     date_time = date_time.apply(lambda x: pd.to_datetime(x, unit='ms').strftime(fomatDT)) 
-    signal = 0
-    bougth_value = 0
-    for i in range(0, len(prices)):
-        date_signal.append(date_time[i])
-        if prices[i] < kc_lower[i]:
-            if i < len(prices) - 1:
-                if prices[i + 1] < prices[i]:
-                    if signal != 1:
-                        buy_price.append(prices[i+1])
-                        bougth_value = prices[i+1]
-                        sell_price.append(0)
-                        signal = 1
-                        kc_signal.append(signal)
-                    else:
-                        buy_price.append(0)
-                        sell_price.append(0)
-                        kc_signal.append(0)
+    try:
+        signal = 0
+        for i in range(0, len(prices)):
+            date_signal.append(date_time[i])
+            if prices[i] < kc_lower[i] and i < len(prices) - 1 and prices[i + 1] > prices[i]:
+                if signal != 1:
+                    buy_price.append(prices[i])
+                    sell_price.append(np.nan)
+                    signal = 1
+                    kc_signal.append(signal)
                 else:
-                    buy_price.append(0)
-                    sell_price.append(0)
+                    buy_price.append(np.nan)
+                    sell_price.append(np.nan)
                     kc_signal.append(0)
-            elif i == len(prices) - 1:
-                if prices[i] < prices[i-1]:
-                    if signal != 1:
-                        buy_price.append(prices[i])
-                        bougth_value = prices[i]
-                        sell_price.append(0)
-                        signal = 1
-                        kc_signal.append(signal)
-                    else:
-                        buy_price.append(0)
-                        sell_price.append(0)
-                        kc_signal.append(0)
+            elif prices[i] > kc_upper[i] and i < len(prices) - 1 and prices[i + 1] < prices[i]:
+                if signal != -1:
+                    buy_price.append(np.nan)
+                    sell_price.append(prices[i])
+                    signal = -1
+                    kc_signal.append(signal)
                 else:
-                    buy_price.append(0)
-                    sell_price.append(0)
+                    buy_price.append(np.nan)
+                    sell_price.append(np.nan)
                     kc_signal.append(0)
-        elif prices[i] > kc_upper[i]:
-            if i < len(prices) - 1:
-                if prices[i + 1] > prices[i] and prices[i+ 1] > bougth_value:
-                    if signal != -1:
-                        print('date: {}, prices:{} - bougth_value:{}'.format(date_time[i+1], prices[i+ 1], bougth_value ))
-                        buy_price.append(0)
-                        sell_price.append(prices[i+1])
-                        signal = -1
-                        kc_signal.append(signal)
-                    else:
-                        buy_price.append(0)
-                        sell_price.append(0)
-                        kc_signal.append(0)
-                else:
-                    buy_price.append(0)
-                    sell_price.append(0)
-                    kc_signal.append(0)
-            elif i == len(prices) - 1:
-                print('prices:{} - bougth_value:{}',prices[i], bougth_value )
-                if prices[i] > prices[i - 1] and prices[i] > bougth_value:
-                    if signal != -1:
-                        buy_price.append(0)
-                        sell_price.append(prices[i])
-                        signal = -1
-                        kc_signal.append(signal)
-                    else:
-                        buy_price.append(0)
-                        sell_price.append(0)
-                        kc_signal.append(0)
-                else:
-                    buy_price.append(0)
-                    sell_price.append(0)
-                    kc_signal.append(0)
-        else:
-            buy_price.append(0)
-            sell_price.append(0)
-            kc_signal.append(0)
-    
-    sell_price = [i for i in sell_price if i != 0.0]
-    buy_price = [i for i in buy_price if i != 0.0][:-1]
-    print('sell_price', sell_price)
-    print('buy_price', buy_price)
-    _profit  = np.sum(sell_price)*quantity - np.sum(buy_price)*quantity
-    print(_profit*23000)
+            else:
+                buy_price.append(np.nan)
+                sell_price.append(np.nan)
+                kc_signal.append(0)
 
-    return buy_price, sell_price, kc_signal, date_signal
+
+        return buy_price, sell_price, kc_signal, date_signal
+    except Exception as e:
+        print("exception implement_kc_strategy: ", e)
+
+    
 
 
 def plot_graph(symbol, df, entry_prices, exit_prices, dfs):
@@ -218,7 +170,7 @@ def plot_graph(symbol, df, entry_prices, exit_prices, dfs):
     fig1.append_trace(go.Bar(x = date, y = profit, name = 'profit', textposition = 'auto', marker=dict(color='green')), 1, 2)
     fig1.append_trace(go.Bar(x = date, y = losses, name = 'losses', textposition = 'auto', marker=dict(color='red')), 1, 2)
 
-    fig1.show()
+    # fig1.show()
     fig.show()
 
 
@@ -229,22 +181,21 @@ def backTest(symbol):
         
         df['kc_middle'], df['kc_upper'], df['kc_lower'] = get_kc(df['high'], df['low'], df['close'], 20, 2, 10)
         buy_price, sell_price, kc_signal, date_signal = implement_kc_strategy(df['close'], df['kc_upper'],
-                                                                              df['kc_lower'], df['date'])
+                                                                              df['kc_lower'], df['date'])    
         position = []
         position_date = []
-
+ 
         for i in range(len(kc_signal)):
             position_date.append(date_signal[i])
             if kc_signal[i] > 1:
                 position.append(0)
             else:
                 position.append(1)
-                x = 0
+ 
         for i in range(len(df['close'])):
             if kc_signal[i] == 1:
                 position[i] = 1
                 # print("Long coin at:        ${}  -  {}".format(buy_price[i], date_signal[i]))
-                x = i
             elif kc_signal[i] == -1:
                 position[i] = 0
                 # print("Take Profit coin at: ${}  - \t{} -> profit: {}".format(sell_price[i], date_signal[i], round(sell_price[i] - buy_price[x], 2)))
@@ -270,7 +221,7 @@ def backTest(symbol):
 
         kc_strategy_ret_df = pd.DataFrame(kc_strategy_ret).rename(columns={0: 'kc_returns'})
 
-        investment_value = 100
+        investment_value = 12
         currency = 25000
         kc_investment_ret = []
         arr_result = []
@@ -282,7 +233,7 @@ def backTest(symbol):
             tp = (strategy['position_date'][i], returns)
             arr_result.append(tp)
 
-        # dfs = groupDateTime(arr_result, symbol, investment_value, currency)
+        dfs = groupDateTime(arr_result, symbol, investment_value, currency)
 
         kc_investment_ret_df = pd.DataFrame(kc_investment_ret).rename(columns={0: 'investment_returns'})
         total_investment_ret = round(sum(kc_investment_ret_df['investment_returns']), 2)
@@ -293,7 +244,7 @@ def backTest(symbol):
         print(cl('Profit percentage of the KC strategy : {}%'.format(profit_percentage), attrs=['bold']))
         time_end = float(t.time() - start_time)
         print("--- %s seconds ---" % time_end)
-        # plot_graph(symbol, df, buy_price, sell_price, dfs)
+        plot_graph(symbol, df, buy_price, sell_price, dfs)
 
         profit_obj = Profit(profit_percentage, investment_value, total_investment_ret, symbol)
         return profit_obj

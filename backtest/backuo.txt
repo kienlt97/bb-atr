@@ -1,0 +1,38 @@
+
+        # for i in range(0, len(prices)):
+        #     buy_value = 0
+        #     sell_value = 0
+        #     buy_key = ''
+        #     sell_key = ''
+        #     if prices[i] < kc_lower[i]:
+        #         if i < len(prices) - 1:
+        #             if prices[i + 1] < prices[i]:
+        #                 if signal != 1:
+        #                     signal = 1
+        #                     buy_key = 'B_'  + str(date_time[i])
+        #                     buy_value = prices[i]
+        #         elif i == len(prices) - 1:
+        #             print(colored("Buy i= {} - last lent: {}, date[i]: {}, prices[i]:{} -- date[i-1]:{}, prices[i-1]:{}, signal:{}  --- date_realtime:{}, price_realtime:{}".format(i, len(prices) - 1, date_time[i], prices[i]  , date_time[i-1],prices[i-1], signal, date_realtime, price_realtime),'yellow'))
+        #             sendMessage("Buy i= {} - last lent: {}, date[i]: {}, prices[i]:{} -- date[i-1]:{}, prices[i-1]:{}, signal:{}  --- date_realtime:{}, price_realtime:{}".format(i, len(prices) - 1, date_time[i] ,prices[i] ,  date_time[i-1], prices[i-1],signal, date_realtime, price_realtime))
+        #             if prices[i] < prices[i-1]:
+        #                 if signal != 1:
+        #                     signal = 1
+        #                     buy_key = 'B_'  + str(date_time[i])
+        #                     buy_value = prices[i]
+        #                     bougth_value = prices[i]
+
+        #     elif prices[i] > kc_upper[i]:
+        #         if i < len(prices) - 1:
+        #             if prices[i + 1] > prices[i]:
+        #                 if signal != -1:
+        #                     signal = -1
+        #                     sell_key = 'S_' + str(date_time[i])
+        #                     sell_value = prices[i]
+        #         elif i == len(prices) - 1:
+        #             print(colored("Sell i= {} - last lent: {}, date[i]: {}, prices[i]:{} -- date[i-1]:{}, prices[i-1]:{}, signal:{}  --- date_realtime:{}, price_realtime:{}".format(i, len(prices) - 1, date_time[i], prices[i]  , date_time[i-1],prices[i-1], signal, date_realtime, price_realtime),'yellow'))
+        #             sendMessage("Sell i= {} - last lent: {}, date[i]: {}, prices[i]:{} -- date[i-1]:{}, prices[i-1]:{}, signal:{}  --- date_realtime:{}, price_realtime:{}".format(i, len(prices) - 1, date_time[i] ,prices[i] ,  date_time[i-1], prices[i-1],signal, date_realtime, price_realtime))
+        #             if prices[i] > prices[i - 1] and prices[i] > bougth_value:
+        #                 if signal != -1:
+        #                     signal = -1
+        #                     sell_key = 'S_' + str(date_time[i])
+        #                     sell_value = prices[i]     

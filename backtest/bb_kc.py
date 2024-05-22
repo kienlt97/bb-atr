@@ -18,7 +18,6 @@ symbol =  "TFUELUSDT"
 my_asset = 'TFUEL'
 asset_symbol = 'USDT'
 client = Client(api_key, api_secret)
-re_num = 0
 
 def get_historical_data(symbol):
     try:
@@ -47,14 +46,35 @@ def get_historical_data(symbol):
         print('get_historical_data exception {}'.format(e))
 
 # KELTNER CHANNEL CALCULATION
+# BOLLINGER BANDS CALCULATION
+def sma(df, lookback):
+    try:
+        sma = df.rolling(lookback).mean()
+        return sma
+    except Exception as e:
+        sendMessage('📛🆘 sma exception: {}'.format(e))
+        print("sma exception: {}".format(e))
+
+def get_bb(df, lookback):
+    try:
+        std = df.rolling(lookback).std()
+        upper_bb = sma(df, lookback) + std * 2
+        lower_bb = sma(df, lookback) - std * 2
+        middle_bb = sma(df, lookback)
+        return upper_bb, middle_bb, lower_bb
+    except Exception as e:
+        sendMessage('📛🆘 get_bb exception: {}'.format(e))
+        print("get_bb exception: {}".format(e))
+
+# KELTNER CHANNEL CALCULATION
 def get_kc(high, low, close, kc_lookback, multiplier, atr_lookback):
     try:
         tr1 = pd.DataFrame(high - low)
         tr2 = pd.DataFrame(abs(high - close.shift()))
         tr3 = pd.DataFrame(abs(low - close.shift()))
         frames = [tr1, tr2, tr3]
-        tr = pd.concat(frames, axis=1, join='inner').max(axis=1)
-        atr = tr.ewm(alpha=1 / atr_lookback).mean()
+        tr = pd.concat(frames, axis = 1, join = 'inner').max(axis = 1)
+        atr = tr.ewm(alpha = 1/atr_lookback).mean()
 
         kc_middle = close.ewm(kc_lookback).mean()
         kc_upper = close.ewm(kc_lookback).mean() + multiplier * atr
@@ -63,87 +83,90 @@ def get_kc(high, low, close, kc_lookback, multiplier, atr_lookback):
     except Exception as e:
         sendMessage('📛🆘 get_kc exception: {}'.format(e))
         print("get_kc exception: {}".format(e))
-
-# KELTNER CHANNEL STRATEGY
-data = dict()
-bougth_value = 0.10783
-profit = 0
-signal = 1
-rule_bougth_value = 0.10998659999999999
-count_sent = 0
-def implement_kc_strategy(prices, kc_upper, kc_lower, date_time, re_num):
-    print("implement_kc_strategy start at:  {}".format(datetime.now()))
-    global data
-    global bougth_value
-    global signal 
-    global profit
-    global rule_bougth_value
-    global count_sent
-    start_time = t.time()
-
+    
+# RSI CALCULATION
+def get_rsi(close, lookback):
     try:
+        ret = close.diff()
+        up = []
+        down = []
+        for i in range(len(ret)):
+            if ret[i] < 0:
+                up.append(0)
+                down.append(ret[i])
+            else:
+                up.append(ret[i])
+                down.append(0)
+        up_series = pd.Series(up)
+        down_series = pd.Series(down).abs()
+        up_ewm = up_series.ewm(com = lookback - 1, adjust = False).mean()
+        down_ewm = down_series.ewm(com = lookback - 1,adjust = False).mean()
+        rs = up_ewm/down_ewm
+        rsi = 100 - (100 / (1 + rs))
+        rsi_df = pd.DataFrame(rsi).rename(columns  ={0:'rsi'}).set_index(close.index)
+        rsi_df = rsi_df.dropna()
+        return rsi_df[3:]
+    except Exception as e:
+        sendMessage('📛🆘 get_rsi exception: {}'.format(e))
+        print("get_rsi exception: {}".format(e))
+
+# TRADING STRATEGY
+
+signal = 0
+profit = 0
+def bb_kc_rsi_strategy(prices, upper_bb, lower_bb, kc_upper, kc_lower, rsi, date_trade, re_num):
+    print("bb_kc_rsi_strategy start at:  {}".format(datetime.now()))
+    start_time = t.time()
+    try:
+        global signal 
+        global profit 
+        lower_bb = lower_bb.to_numpy()
+        kc_lower = kc_lower.to_numpy()
+        upper_bb = upper_bb.to_numpy()
+        kc_upper = kc_upper.to_numpy()
+        prices = prices.to_numpy()
+        rsi = rsi.to_numpy()
         last_idx = len(prices) - 1
-        buy_value = 0
-        sell_value = 0    
 
-        print(colored("date_time: {}, --(kc_lower > prices -> buy) kc_lower: {} - prices: {} - kc_upper: {} (prices > kc_upper -> sell) - bougth_value: {}, rule_bougth_value :{} signal:{}".format(date_time[last_idx], kc_lower[last_idx] , prices[last_idx], kc_upper[last_idx] ,bougth_value, rule_bougth_value,signal),'yellow'))
+        # if re_num == 0:
+        #     for i in range(len(prices)):
+        #         if lower_bb[i] < kc_lower[i] and upper_bb[i] > kc_upper[i] and rsi[i] < 40:
+        #             if signal != 1:
+        #                 signal = 1
+        #         elif lower_bb[i] < kc_lower[i] and upper_bb[i] > kc_upper[i] and rsi[i] > 60:
+        #             if signal != -1:
+        #                 signal = -1
 
-        if prices[last_idx] < kc_lower[last_idx] and prices[last_idx] < prices[last_idx-1]:
+        print(colored("date_time: {} |-- price: {} -- | (rsi < 40: Buy, rsi > 60: Sell) -- rsi: {} |-- lower_bb: {} | kc_lower: {} | upper_bb: {} | kc_upper: {} | signal: {}".format(date_trade, prices[last_idx], rsi[last_idx], lower_bb[last_idx], kc_lower[last_idx], upper_bb[last_idx], kc_upper[last_idx], signal),'yellow'))
+
+        if lower_bb[last_idx] < kc_lower[last_idx] and upper_bb[last_idx] > kc_upper[last_idx] and rsi[last_idx] < 40:
             if signal != 1:
                 signal = 1
-                buy_key = 'B_'  + str(date_time[last_idx])
-                buy_value = prices[last_idx]
+                cummulativeQuoteQty = f_buy(rsi[last_idx])
+                profit = profit - float(cummulativeQuoteQty)
+                print(colored("Buy with entry price {} - at: {}".format(prices[last_idx], date_trade), 'green'))
+                
+        elif lower_bb[last_idx] < kc_lower[last_idx] and upper_bb[last_idx] > kc_upper[last_idx] and rsi[last_idx] > 60:
+            if signal != -1:
+                signal = -1
+                cummulativeQuoteQty = f_sell(rsi[last_idx])
+                profit = profit + float(cummulativeQuoteQty)
+                sendMessage('👑👑💸💸💰💰💵💵🏦🏦💲💲🤑🤑 profit: {}'.format(profit))
+                print(colored("Sell with price {} - at: {}".format(prices[last_idx], date_trade), 'red'))
 
-        elif prices[last_idx] > kc_upper[last_idx] and prices[last_idx] > prices[last_idx - 1]:
-            
-            if  prices[last_idx] < bougth_value:
-                rule_bougth_value = bougth_value*2/100 + bougth_value
-                count_sent =+ 1
-            elif prices[last_idx] > bougth_value and rule_bougth_value == 0:
-                rule_bougth_value = bougth_value
-
-            if signal == 1 and count_sent == 10:
-                print(colored("prices:{} - bougth_value: {} - rule_bougth_value: {}".format(prices[last_idx],bougth_value, rule_bougth_value ),'red'))
-                sendMessage("❗️❗️❗️ prices:{} - bougth_value: {} - rule_bougth_value: {}".format(prices[last_idx],bougth_value, rule_bougth_value ))
-
-            if prices[last_idx] > rule_bougth_value :
-                if signal != -1 and signal != 0:
-                    signal = -1
-                    sell_key = 'S_' + str(date_time[last_idx])
-                    sell_value = prices[last_idx]     
-        
-        if sell_value != 0:
-            if data.get(sell_key) == None:
-                if re_num != 0:
-                    cummulativeQuoteQty = f_sell()
-                    profit = profit + float(cummulativeQuoteQty)
-                    sendMessage('👑👑💸💸💰💰💵💵🏦🏦 profit: {}'.format(profit))
-                print(colored("Sell with price {} - at: {}".format(sell_value, date_time[last_idx]), 'red'))
-                data[sell_key] = sell_value
-
-        elif buy_value != 0:
-            if data.get(buy_key) == None:
-                if re_num != 0:
-                    cummulativeQuoteQty, bougth_price = f_buy()
-                    bougth_value = bougth_price
-                    profit = profit - float(cummulativeQuoteQty)
-                print(colored("Buy with entry price {} - at: {}".format(buy_value, date_time[last_idx]), 'green'))
-                data[buy_key] = buy_value
-            
-        time_end = float(t.time() - start_time)
-        print("implement_kc_strategy end {} about {} seconds ...".format(datetime.now(), time_end))
+        print("bb_kc_rsi_strategy end {} about {} seconds ...".format(datetime.now(), t.time() - start_time))
     except Exception as e:
-        sendMessage('📛🆘 implement_kc_strategy exception: {}'.format(e))
-        print("implement_kc_strategy exception: {}".format(e))
-    
-def f_sell():
+        sendMessage('📛🆘 bb_kc_rsi_strategy exception: {}'.format(e))
+        print("bb_kc_rsi_strategy exception: {}".format(e))
+
+def f_sell(rsi):
     print("f_sell start at:  {}".format(datetime.now()))
     start_time = t.time()
     cummulativeQuoteQty = 0
     try:
         quantity_sell = getQuantitySell()
-        order = client.order_market_sell(symbol=symbol,quantity = quantity_sell)
         print("Sell with {} quantity".format(quantity_sell))
+        order = client.order_market_sell(symbol=symbol,quantity = quantity_sell)
     except BinanceAPIException as e:
         #error handling here
         sendMessage('📛🆘 BinanceAPIException f_sell exception: {}'.format(e))
@@ -160,23 +183,22 @@ def f_sell():
             price = order['fills'][i]['price']
             qty = order['fills'][i]['qty']
             commission = order['fills'][i]['commission']
-            total_money = float(price) * round(float(qty), 2)
-            message = message + "\n📢🧧🧧 Sell with entry price: {} - quantity: {} -> :  at: total money: {} - commission {} ,cummulativeQuoteQty:{} 📢🧧🧧".format(price, round(float(qty), 2), total_money, commission, cummulativeQuoteQty)
+            transactTime = order['transactTime']
+            message = message + "\n📢🧧🧧 Sell with entry price: {} - quantity: {} - at date time: {} - commission {} - cummulativeQuoteQty: {} - rsi:{} 📢🧧🧧".format(price, round(float(qty), 2), datetime.fromtimestamp(float(transactTime) / 1000.0).strftime('%Y-%m-%d %H:%M:%S'), commission, cummulativeQuoteQty, rsi)
         sendMessage(message)
     
     print("f_sell end {} about {} seconds ...".format(datetime.now(), float(t.time() - start_time)))
 
     return cummulativeQuoteQty
 
-def f_buy():
+def f_buy(rsi):
     print("f_buy start at:  {}".format(datetime.now()))
     start_time = t.time()
     cummulativeQuoteQty = 0
-    bougth_price = 0
     try:
         quantity_buy = getQuantityBuy()
-        order = client.order_market_buy(symbol=symbol,quantity = quantity_buy)
         print("Buy with {} quantity".format(quantity_buy))
+        order = client.order_market_buy(symbol=symbol,quantity = quantity_buy)
     except BinanceAPIException as e:
         #error handling here
         sendMessage('📛🆘BinanceAPIException f_buy exception: {}'.format(e))
@@ -193,18 +215,15 @@ def f_buy():
             price = order['fills'][i]['price']
             qty = order['fills'][i]['qty']
             commission = order['fills'][i]['commission']
-            total_money = float(price) * round(float(qty), 2)
-            message = message + "\n🔔💹 Buy with entry price: {} - quantity: {} -> :  at: total money: {} - commission {}: ,cummulativeQuoteQty:{}  🔔💹".format(price, round(float(qty), 2), total_money, commission,cummulativeQuoteQty)
-            
-            if bougth_price <= price:
-                bougth_price = price
+            transactTime = order['transactTime']
+            message = message + "\n🔔💹 Buy with entry price: {} - quantity: {} - at date time: {} - commission: {} - cummulativeQuoteQty: {} - rsi:{} 🔔💹".format(price, round(float(qty), 2), datetime.fromtimestamp(float(transactTime) / 1000.0).strftime('%Y-%m-%d %H:%M:%S'), commission,cummulativeQuoteQty, rsi)
         sendMessage(message)    
 
     print("f_buy end {} about {} seconds ...".format(datetime.now(), float(t.time() - start_time)))
-    return cummulativeQuoteQty, bougth_price
+    return cummulativeQuoteQty
          
 df = get_historical_data(symbol)
-
+re_num = 0
 def backTest(df_plus):
     global df
     global re_num
@@ -216,9 +235,13 @@ def backTest(df_plus):
 
         df = df._append(df_plus, ignore_index=True)
         print("bot request at {}".format(datetime.now()))
-        # df = get_historical_data(symbol)
+        df['upper_bb'], df['middle_bb'], df['lower_bb'] = get_bb(df['close'], 20)
         df['kc_middle'], df['kc_upper'], df['kc_lower'] = get_kc(df['high'], df['low'], df['close'], 20, 2, 10)
-        implement_kc_strategy(df['close'], df['kc_upper'],df['kc_lower'], df['date'], re_num)
+
+        df['rsi_14'] = get_rsi(df['close'], 14)
+        # df = df.dropna()
+
+        bb_kc_rsi_strategy(df['close'], df['upper_bb'], df['lower_bb'], df['kc_upper'], df['kc_lower'], df['rsi_14'], df_plus['date'][0], re_num)
         re_num = 1
     except Exception as e:
         sendMessage('📛🆘 backTest exception: {}'.format(e))
@@ -230,7 +253,7 @@ def getQuantityBuy():
     try:
         balance = client.get_asset_balance(asset = asset_symbol)
         trades = client.get_recent_trades(symbol=symbol)
-        quantity = (float(balance['free'])) / (float(trades[0]['price']))
+        quantity = (float(balance['free'])) / (float(trades[0]['price'])) * 0.9
     
         response = client.get_symbol_info(symbol=symbol)
         lotSizeFloat = format(float(response["filters"][1]["stepSize"]), '.20f')
