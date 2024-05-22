@@ -122,13 +122,42 @@ def bb_kc_rsi_strategy(prices, upper_bb, lower_bb, kc_upper, kc_lower, rsi, date
         prices = prices.to_numpy()
         rsi = rsi.to_numpy()
         last_idx = len(prices) - 1
-        # if re_num == 0:
+        
+        if lower_bb[last_idx] < kc_lower[last_idx] and upper_bb[last_idx] > kc_upper[last_idx] and rsi[last_idx] < 40:
+            if signalL != 1:                
+                sendMessage("Last date_time: {} |-- price: {} -- | (rsi < 40: Buy, rsi > 60: Sell) -- rsi: {} |-- lower_bb: {} | kc_lower: {} | upper_bb: {} | kc_upper: {} | signal: {}".format(date_trade, prices[last_idx], rsi[last_idx], lower_bb[last_idx], kc_lower[last_idx], upper_bb[last_idx], kc_upper[last_idx], signal))
+                print(colored("Last date_time: {} |-- price: {} -- | (rsi < 40: Buy, rsi > 60: Sell) -- rsi: {} |-- lower_bb: {} | kc_lower: {} | upper_bb: {} | kc_upper: {} | signal: {}".format(date_trade, prices[last_idx], rsi[last_idx], lower_bb[last_idx], kc_lower[last_idx], upper_bb[last_idx], kc_upper[last_idx], signalL),'yellow'))
+                print(colored("Last Buy with entry price {} - at: {}".format(prices[last_idx], date_trade), 'green'))
+                sendMessage("Last Buy with entry price {} - at: {}".format(prices[last_idx], date_trade))
+                signalL = 1
+                print("===========================================================================================================")
+
+        elif lower_bb[last_idx] < kc_lower[last_idx] and upper_bb[last_idx] > kc_upper[last_idx] and rsi[last_idx] > 60:
+            if signalL != -1:
+                sendMessage("Last date_time: {} |-- price: {} -- | (rsi < 40: Buy, rsi > 60: Sell) -- rsi: {} |-- lower_bb: {} | kc_lower: {} | upper_bb: {} | kc_upper: {} | signal: {}".format(date_trade, prices[last_idx], rsi[last_idx], lower_bb[last_idx], kc_lower[last_idx], upper_bb[last_idx], kc_upper[last_idx], signal))
+                print(colored("Last date_time: {} |-- price: {} -- | (rsi < 40: Buy, rsi > 60: Sell) -- rsi: {} |-- lower_bb: {} | kc_lower: {} | upper_bb: {} | kc_upper: {} | signal: {}".format(date_trade, prices[last_idx], rsi[last_idx], lower_bb[last_idx], kc_lower[last_idx], upper_bb[last_idx], kc_upper[last_idx], signalL),'yellow'))
+                print(colored("Last Sell with price {} - at: {}".format(prices[last_idx], date_trade), 'red'))
+                sendMessage("Last Sell with price {} - at: {}".format(prices[last_idx], date_trade))
+                signalL = -1
+                print("===========================================================================================================")
+
+    except Exception as e:
+        print("bb_kc_rsi_strategy exception: {}".format(e))
+
+def bb_kc_rsi_strategy1(prices, upper_bb, lower_bb, kc_upper, kc_lower, rsi, date_trade):
+    try:
+        global profit 
+        lower_bb = lower_bb.to_numpy()
+        kc_lower = kc_lower.to_numpy()
+        upper_bb = upper_bb.to_numpy()
+        kc_upper = kc_upper.to_numpy()
+        prices = prices.to_numpy()
+        rsi = rsi.to_numpy()
+        last_idx = len(prices) - 1
         
         signal = 0
-        txt_last = ''
         for i in range(len(prices)):
             if i == last_idx: 
-                txt_last = "For date_time: {} |-- price: {} -- | (rsi < 40: Buy, rsi > 60: Sell) -- rsi: {} |-- lower_bb: {} | kc_lower: {} | upper_bb: {} | kc_upper: {} | signal: {}".format(date_trade, prices[last_idx], rsi[last_idx], lower_bb[last_idx], kc_lower[last_idx], upper_bb[last_idx], kc_upper[last_idx], signal)
                 if lower_bb[i] < kc_lower[i] and upper_bb[i] > kc_upper[i] and rsi[i] < 40:
                     if signal != 1:                        
                         print(colored("date_time: {} |-- price: {} -- | (rsi < 40: Buy, rsi > 60: Sell) -- rsi: {} |-- lower_bb: {} | kc_lower: {} | upper_bb: {} | kc_upper: {} | signal: {}".format(date_trade, prices[last_idx], rsi[last_idx], lower_bb[last_idx], kc_lower[last_idx], upper_bb[last_idx], kc_upper[last_idx], signal),'yellow'))
@@ -151,33 +180,9 @@ def bb_kc_rsi_strategy(prices, upper_bb, lower_bb, kc_upper, kc_lower, rsi, date
                         signal = 1
                 elif lower_bb[i] < kc_lower[i] and upper_bb[i] > kc_upper[i] and rsi[i] > 60:
                     if signal != -1:
-                        signal = -1
-
-
-        if lower_bb[last_idx] < kc_lower[last_idx] and upper_bb[last_idx] > kc_upper[last_idx] and rsi[last_idx] < 40:
-            if signalL != 1:                
-                sendMessage("Last date_time: {} |-- price: {} -- | (rsi < 40: Buy, rsi > 60: Sell) -- rsi: {} |-- lower_bb: {} | kc_lower: {} | upper_bb: {} | kc_upper: {} | signal: {}".format(date_trade, prices[last_idx], rsi[last_idx], lower_bb[last_idx], kc_lower[last_idx], upper_bb[last_idx], kc_upper[last_idx], signal))
-                print(colored("Last date_time: {} |-- price: {} -- | (rsi < 40: Buy, rsi > 60: Sell) -- rsi: {} |-- lower_bb: {} | kc_lower: {} | upper_bb: {} | kc_upper: {} | signal: {}".format(date_trade, prices[last_idx], rsi[last_idx], lower_bb[last_idx], kc_lower[last_idx], upper_bb[last_idx], kc_upper[last_idx], signalL),'yellow'))
-                print(colored("Last Buy with entry price {} - at: {}".format(prices[last_idx], date_trade), 'green'))
-                sendMessage("Last Buy with entry price {} - at: {}".format(prices[last_idx], date_trade))
-                print(txt_last)
-                sendMessage(txt_last)
-                signalL = 1
-                print("===========================================================================================================")
-
-        elif lower_bb[last_idx] < kc_lower[last_idx] and upper_bb[last_idx] > kc_upper[last_idx] and rsi[last_idx] > 60:
-            if signalL != -1:
-                sendMessage("Last date_time: {} |-- price: {} -- | (rsi < 40: Buy, rsi > 60: Sell) -- rsi: {} |-- lower_bb: {} | kc_lower: {} | upper_bb: {} | kc_upper: {} | signal: {}".format(date_trade, prices[last_idx], rsi[last_idx], lower_bb[last_idx], kc_lower[last_idx], upper_bb[last_idx], kc_upper[last_idx], signal))
-                print(colored("Last date_time: {} |-- price: {} -- | (rsi < 40: Buy, rsi > 60: Sell) -- rsi: {} |-- lower_bb: {} | kc_lower: {} | upper_bb: {} | kc_upper: {} | signal: {}".format(date_trade, prices[last_idx], rsi[last_idx], lower_bb[last_idx], kc_lower[last_idx], upper_bb[last_idx], kc_upper[last_idx], signalL),'yellow'))
-                print(colored("Last Sell with price {} - at: {}".format(prices[last_idx], date_trade), 'red'))
-                sendMessage("Last Sell with price {} - at: {}".format(prices[last_idx], date_trade))
-                print(txt_last)
-                sendMessage(txt_last)
-                signalL = -1
-                print("===========================================================================================================")
-
+                        signal = -1        
     except Exception as e:
-        print("bb_kc_rsi_strategy exception: {}".format(e))
+        print("bb_kc_rsi_strategy exception: {}".format(e))        
          
 df = get_historical_data(symbol)
 re_num = 0
@@ -198,6 +203,12 @@ def backTest(df_plus):
         # df = df.dropna()
         bb_kc_rsi_strategy(df['close'], df['upper_bb'], df['lower_bb'], df['kc_upper'], df['kc_lower'], df['rsi_14'], df_plus['date'][0], re_num)
         re_num = 1
+        df1 = get_historical_data(symbol)
+        df1['upper_bb'], df1['middle_bb'], df1['lower_bb'] = get_bb(df1['close'], 20)
+        df1['kc_middle'], df1['kc_upper'], df1['kc_lower'] = get_kc(df1['high'], df1['low'], df1['close'], 20, 2, 10)
+        df1['rsi_14'] = get_rsi(df1['close'], 14)
+
+        bb_kc_rsi_strategy1(df1['close'], df1['upper_bb'], df1['lower_bb'], df1['kc_upper'], df1['kc_lower'], df1['rsi_14'], df1['date'][0])
     except Exception as e:
         print("backTest xception: " + e)
  
